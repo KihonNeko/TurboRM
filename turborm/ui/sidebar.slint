@@ -1,0 +1,206 @@
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+
+// One rail entry. The active entry reads as a raised surface panel with an
+// inset rule, matching the "My files" treatment in the reference client.
+component NavLink inherits Rectangle {
+    in property <string> text;
+    in property <string> icon;
+    in property <bool> active;
+    in property <length> icon-size: 18px;
+    callback clicked();
+
+    height: 38px;
+    background: root.active
+        ? Theme.surface
+        : (touch.has-hover ? Theme.surface-2 : transparent);
+    border-width: root.active ? 1px : 0px;
+    border-color: Theme.rule;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-checked: root.active;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 12px;
+        spacing: 12px;
+        Icon {
+            name: root.icon;
+            width: root.icon-size;
+            height: root.icon-size;
+            y: (parent.height - self.height) / 2;
+            stroke: root.active ? Theme.ink : Theme.ink-2;
+            stroke-width: 1.4px;
+        }
+        Text {
+            text: root.text;
+            color: root.active ? Theme.ink : Theme.ink-2;
+            font-size: Theme.text-body;
+            font-weight: root.active ? 600 : 400;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+            accessible-role: none;
+        }
+    }
+    touch := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// Fixed rail: "My files" on top, the type/favorite filters below a muted
+// caption, and the connection state with the theme toggle at the foot.
+export component Sidebar inherits Rectangle {
+    // "", "notebook", "pdf", "epub" or "pinned" — Rust owns the value.
+    in property <string> filter;
+    in property <bool> paired;
+    in property <bool> demo-mode;
+    // A few words on the full-library download, e.g. "saving offline 45%".
+    in property <string> offline-summary;
+    callback filter-changed(string);
+    callback theme-toggled();
+    callback settings-requested();
+
+    background: Theme.bg-deep;
+
+    // The right-hand rule separates the fixed rail from the main column.
+    Rectangle {
+        x: parent.width - 1px;
+        y: 0px;
+        width: 1px;
+        height: parent.height;
+        background: Theme.rule;
+    }
+
+    VerticalLayout {
+        padding-top: 0px;
+        padding-bottom: 14px;
+        spacing: 0px;
+
+        // "My files" is flush with the window's top edge and reads as a
+        // raised panel, exactly like the reference client's rail.
+        NavLink {
+            text: "My files";
+            icon: "tray";
+            icon-size: 19px;
+            height: 72px;
+            active: root.filter == "";
+            clicked => {
+                root.filter-changed("");
+            }
+        }
+
+        Rectangle { height: 14px; }
+
+        Text {
+            height: 22px;
+            x: 16px;
+            text: "Filter by";
+            color: Theme.muted;
+            font-size: Theme.text-micro;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+
+        NavLink {
+            text: "Notebooks";
+            icon: "notebook";
+            active: root.filter == "notebook";
+            clicked => {
+                root.filter-changed("notebook");
+            }
+        }
+        NavLink {
+            text: "PDFs";
+            icon: "pdf";
+            active: root.filter == "pdf";
+            clicked => {
+                root.filter-changed("pdf");
+            }
+        }
+        NavLink {
+            text: "Ebooks";
+            icon: "ebook";
+            active: root.filter == "epub";
+            clicked => {
+                root.filter-changed("epub");
+            }
+        }
+        NavLink {
+            text: "Favorites";
+            icon: "star-outline";
+            active: root.filter == "pinned";
+            clicked => {
+                root.filter-changed("pinned");
+            }
+        }
+
+        Rectangle { vertical-stretch: 1; }
+
+        NavLink {
+            text: "Settings";
+            icon: "settings";
+            active: false;
+            clicked => {
+                root.settings-requested();
+            }
+        }
+
+        Rectangle { height: 8px; }
+
+        HorizontalLayout {
+            height: 30px;
+            padding-left: 16px;
+            padding-right: 10px;
+            spacing: 7px;
+            Icon {
+                name: "dot";
+                width: 6px;
+                height: 6px;
+                y: (parent.height - self.height) / 2;
+                stroke: root.demo-mode
+                    ? Theme.muted
+                    : (root.paired ? Theme.ok : Theme.rule-strong);
+            }
+            Text {
+                text: root.demo-mode
+                    ? "Demo mode"
+                    : (!root.paired ? "Not connected"
+                        : (root.offline-summary != "" ? "Connected · " + root.offline-summary : "Connected"));
+                color: Theme.muted;
+                font-size: Theme.text-micro;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+            Rectangle {
+                width: 30px;
+                height: 30px;
+                border-radius: Theme.radius;
+                background: theme-touch.has-hover ? Theme.surface-2 : transparent;
+                accessible-role: button;
+                accessible-label: Theme.dark ? "Use the light theme" : "Use the dark theme";
+                accessible-action-default => {
+                    root.theme-toggled();
+                }
+                Icon {
+                    name: Theme.dark ? "sun" : "moon";
+                    width: 17px;
+                    height: 17px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    stroke: theme-touch.has-hover ? Theme.ink : Theme.muted;
+                }
+                theme-touch := TouchArea {
+                    clicked => {
+                        root.theme-toggled();
+                    }
+                }
+            }
+        }
+    }
+}

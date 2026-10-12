@@ -1,0 +1,79 @@
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+
+// Flat toolbar action: an icon with an optional label, no border until hover.
+export component IconButton inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <bool> enabled: true;
+    callback clicked();
+
+    // The label width is measured off-screen so the conditional row can elide.
+    property <length> label-width: measure.preferred-width;
+    min-width: root.label == "" ? 30px : root.label-width + 34px;
+    preferred-width: self.min-width;
+    horizontal-stretch: 0;
+    min-height: 30px;
+    max-height: 30px;
+    border-radius: Theme.radius;
+    background: root.enabled && (input.has-hover || focus.has-focus)
+        ? Theme.surface-2
+        : transparent;
+    opacity: root.enabled ? 1.0 : 0.45;
+    accessible-role: button;
+    accessible-label: root.label == "" ? root.icon : root.label;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
+    forward-focus: focus;
+
+    HorizontalLayout {
+        padding-left: root.label == "" ? 0px : 9px;
+        padding-right: root.label == "" ? 0px : 9px;
+        spacing: 7px;
+        alignment: center;
+        Icon {
+            name: root.icon;
+            width: 16px;
+            height: 16px;
+            y: (parent.height - self.height) / 2;
+            stroke: input.has-hover && root.enabled ? Theme.ink : Theme.muted;
+        }
+        if root.label != "": Text {
+            text: root.label;
+            color: input.has-hover && root.enabled ? Theme.ink : Theme.ink-2;
+            font-size: 12px;
+            font-weight: 500;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+    measure := Text {
+        visible: false;
+        text: root.label;
+        font-size: 12px;
+        font-weight: 500;
+        accessible-role: none;
+    }
+    input := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+            focus.focus();
+        }
+    }
+    focus := FocusScope {
+        width: 0px;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (event.text == Key.Space || event.text == Key.Return) {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+}

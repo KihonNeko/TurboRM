@@ -1,0 +1,38 @@
+// Presentation tokens only. This global holds no domain state; Rust owns that.
+// Values mirror the "alpine" (light) and "midnight" (dark) themes of the
+// reference workspace stylesheet.
+export global Theme {
+    in-out property <bool> dark: false;
+
+    out property <color> bg: root.dark ? #18191b : #ffffff;
+    out property <color> bg-deep: root.dark ? #131416 : #f6f6f7;
+    out property <color> surface: root.dark ? #1d1e21 : #ffffff;
+    out property <color> surface-2: root.dark ? #26282d : #f1f2f4;
+    out property <color> ink: root.dark ? #ececef : #202124;
+    out property <color> ink-2: root.dark ? #b8bbc3 : #51545b;
+    out property <color> muted: root.dark ? #979ba5 : #72757d;
+    out property <color> rule: root.dark ? #2b2d32 : #e7e8eb;
+    out property <color> rule-strong: root.dark ? #464951 : #c9cbd1;
+    out property <color> accent: root.dark ? #9baeff : #3e5aca;
+    out property <color> accent-ink: root.dark ? #171a27 : #ffffff;
+    out property <color> ok: root.dark ? #7cc49c : #26734d;
+    out property <color> ko: root.dark ? #f08d91 : #b23b41;
+    out property <color> warn: root.dark ? #d1b771 : #886718;
+
+    // Selected rows tint with the accent; a flat surface-2 fill reads as noise
+    // on dark backgrounds, so the selected fill is derived instead.
+    out property <color> selected-fill: root.dark ? #26282d : #f1f2f4;
+    // The document sheet is paper, not chrome: it stays white in both themes so
+    // the rendered page is shown as it is, rather than tinted.
+    out property <color> paper: #ffffff;
+    out property <color> overlay: root.dark ? #000000bb : #2021247a;
+    out property <color> shadow: root.dark ? #00000066 : #0000000f;
+
+    // Type scale from the reference: 13px body, 11px secondary, 30px heading.
+    out property <length> text-body: 13px;
+    out property <length> text-small: 11px;
+    out property <length> text-micro: 10px;
+    out property <length> text-heading: 30px;
+    out property <length> radius: 5px;
+    out property <length> radius-card: 6px;
+}

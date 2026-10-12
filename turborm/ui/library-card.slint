@@ -1,0 +1,138 @@
+import { LibraryItem } from "types.slint";
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+import { DragSource, FolderDrop } from "drag.slint";
+
+// Cover card in the reference's shape: a square-cornered surface panel with a
+// 1px rule around the cover, the title and a small star under it. The whole
+// card gains a 2px ink frame when it is selected.
+export component LibraryCard inherits Rectangle {
+    in property <LibraryItem> item;
+    callback selected(string);
+    callback activated(string);
+    callback cover-visible(string);
+    callback context-menu(string, length, length);
+
+    background: transparent;
+    border-width: root.item.selected || item-drop.has-drag ? 2px : 0px;
+    border-color: item-drop.has-drag ? Theme.accent : Theme.ink;
+    accessible-role: list-item;
+    accessible-label: root.item.title;
+    accessible-item-selected: root.item.selected;
+
+    init => {
+        if (!root.item.is-folder && !root.item.cover-ready) {
+            root.cover-visible(root.item.entry-id);
+        }
+    }
+    changed item => {
+        if (!root.item.is-folder && !root.item.cover-ready) {
+            root.cover-visible(root.item.entry-id);
+        }
+    }
+
+    VerticalLayout {
+        padding: root.item.selected ? 4px : 6px;
+        spacing: 9px;
+
+        // The cover sheet: paper white, a single rule, no rounding. Its height
+        // follows the width at the A-series page ratio (1 : sqrt 2) so a card
+        // reads as a sheet of paper rather than a square tile.
+        Rectangle {
+            height: self.width * 1.414;
+            vertical-stretch: 0;
+            background: Theme.surface;
+            border-width: 1px;
+            border-color: touch.has-hover && !root.item.selected
+                ? Theme.rule-strong
+                : Theme.rule;
+            clip: true;
+            if root.item.cover-ready: Image {
+                width: parent.width - 2px;
+                height: parent.height - 2px;
+                x: 1px;
+                y: 1px;
+                source: root.item.cover;
+                image-fit: contain;
+                accessible-role: none;
+            }
+            if !root.item.cover-ready: Icon {
+                name: !root.item.is-folder ? "doc" : root.item.has-content ? "folder-filled" : "folder";
+                width: 28px;
+                height: 28px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                stroke: root.item.has-content ? Theme.ink : Theme.rule-strong;
+                stroke-width: 1.3px;
+            }
+        }
+
+        // Title row: the name on the left, the pinned star at the far right.
+        Rectangle {
+            height: 17px;
+            background: transparent;
+            Text {
+                x: 0px;
+                y: 0px;
+                width: parent.width - (root.item.pinned ? 18px : 0px);
+                height: parent.height;
+                text: root.item.title;
+                color: Theme.ink;
+                font-size: Theme.text-body;
+                font-weight: 500;
+                letter-spacing: -0.1px;
+                vertical-alignment: center;
+                overflow: elide;
+                accessible-role: none;
+            }
+            if root.item.pinned: Icon {
+                x: parent.width - 12px;
+                y: (parent.height - self.height) / 2;
+                width: 12px;
+                height: 12px;
+                name: "star";
+                stroke: Theme.ink;
+            }
+        }
+        Text {
+            height: 14px;
+            text: root.item.warning == "" ? root.item.subtitle : root.item.warning;
+            color: root.item.warning == "" ? Theme.muted : Theme.warn;
+            font-size: Theme.text-small;
+            overflow: elide;
+            accessible-role: none;
+        }
+    }
+
+    // Folders take drops, and open when a drag rests on them.
+    item-drop := FolderDrop {
+        enabled: root.item.is-folder;
+        folder-id: root.item.entry-id;
+        folder-title: root.item.title;
+        open-folder(id) => {
+            root.activated(id);
+        }
+        DragSource {
+            entry-id: root.item.entry-id;
+            title: root.item.title;
+            is-folder: root.item.is-folder;
+            touch := TouchArea {
+                pointer-event(event) => {
+                    if (event.button == PointerEventButton.right
+                        && event.kind == PointerEventKind.down) {
+                        root.context-menu(
+                            root.item.entry-id,
+                            root.absolute-position.x + self.mouse-x,
+                            root.absolute-position.y + self.mouse-y);
+                    }
+                }
+                clicked => {
+                    root.selected(root.item.entry-id);
+                }
+                double-clicked => {
+                    root.activated(root.item.entry-id);
+                }
+            }
+        }
+    }
+}

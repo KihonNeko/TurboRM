@@ -1,0 +1,40 @@
+[package]
+name = "turborm"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.92"
+description = "TurboRM: an independent Linux desktop client for reMarkable Cloud"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/KihonNeko/TurboRM"
+default-run = "turborm"
+build = "build.rs"
+
+[[bin]]
+name = "turborm"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+lopdf = { version = "0.38", default-features = false, features = ["rayon"] }
+memchr = "2"
+turborm-core = { path = "../turborm-core" }
+resvg = "0.45"
+rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "async-std"] }
+rustix = { version = "1", features = ["fs"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+ttf-parser = "0.25"
+uuid = "1"
+zeroize = "1"
+slint = { version = "1.18.1", default-features = false, features = ["std", "compat-1-18", "backend-winit", "renderer-skia", "accessibility"] }
+
+[build-dependencies]
+slint-build = "1.18.1"
+
+[dev-dependencies]
+# The testing backend exposes internal APIs; keep it matched to Slint exactly.
+i-slint-backend-testing = "=1.18.1"

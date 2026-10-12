@@ -1,0 +1,100 @@
+import { ListView } from "std-widgets.slint";
+import { FolderTarget } from "types.slint";
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+import { FlatAction } from "flat-action.slint";
+
+// Centred modal card over a dimmed overlay.
+export component MoveDialog inherits Rectangle {
+    in property <[FolderTarget]> targets;
+    callback move-to(string);
+    callback cancelled();
+    background: Theme.overlay;
+
+    // Consume backdrop clicks instead of activating the library underneath.
+    TouchArea { }
+
+    // A soft drop shadow, offset behind the card.
+    Rectangle {
+        width: card.width;
+        height: card.height;
+        x: card.x;
+        y: card.y + 3px;
+        background: Theme.shadow;
+        border-radius: 8px;
+    }
+
+    card := Rectangle {
+        width: min(460px, parent.width - 48px);
+        height: min(500px, parent.height - 64px);
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        background: Theme.surface;
+        border-radius: 8px;
+        border-color: Theme.rule;
+        border-width: 1px;
+        clip: true;
+        VerticalLayout {
+            padding: 20px;
+            spacing: 14px;
+            Text {
+                text: "Move to folder";
+                font-size: 17px;
+                font-weight: 600;
+                letter-spacing: -0.4px;
+                color: Theme.ink;
+            }
+            ListView {
+                vertical-stretch: 1;
+                for target in root.targets: Rectangle {
+                    width: parent.width;
+                    height: 42px;
+                    background: target-touch.has-hover ? Theme.bg-deep : Theme.surface;
+                    accessible-role: list-item;
+                    accessible-label: target.title;
+                    Rectangle {
+                        y: parent.height - 1px;
+                        width: parent.width;
+                        height: 1px;
+                        background: Theme.rule;
+                    }
+                    Icon {
+                        x: 6px;
+                        y: (parent.height - self.height) / 2;
+                        width: 16px;
+                        height: 16px;
+                        name: "folder";
+                        stroke: target-touch.has-hover ? Theme.accent : Theme.muted;
+                    }
+                    Text {
+                        x: 32px;
+                        y: 0px;
+                        width: parent.width - 42px;
+                        height: parent.height;
+                        text: target.title;
+                        font-size: Theme.text-body;
+                        vertical-alignment: center;
+                        overflow: elide;
+                        color: Theme.ink;
+                        accessible-role: none;
+                    }
+                    target-touch := TouchArea {
+                        clicked => {
+                            root.move-to(target.entry-id);
+                        }
+                    }
+                }
+            }
+            HorizontalLayout {
+                height: 32px;
+                alignment: end;
+                FlatAction {
+                    text: "Cancel";
+                    clicked => {
+                        root.cancelled();
+                    }
+                }
+            }
+        }
+    }
+}

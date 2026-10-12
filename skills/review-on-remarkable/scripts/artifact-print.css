@@ -1,0 +1,77 @@
+/* Print stylesheet injected by html2pdf.sh into HTML artifacts before
+   Chromium prints them for the reMarkable Paper Pro (colour E Ink). The page
+   is 180 mm wide; the injected script sets its height to the content's, so
+   the artifact is one long page scrolled on the tablet. It forces the light
+   theme, keeps colours, turns screen-only positioning into normal flow and
+   avoids splitting cards, charts and rows if a page break is ever needed. */
+
+@page {
+  size: 180mm 240mm;
+  margin: 12mm 12mm 14mm 12mm;
+}
+
+:root {
+  color-scheme: light !important;
+}
+
+*, *::before, *::after {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+html, body {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Screen-only positioning. The injected script also resets any element whose
+   computed position is fixed or sticky. */
+header, nav, [class*="sticky" i], [class*="fixed" i] {
+  position: static !important;
+}
+
+/* Interactive-only controls. */
+button[aria-label*="theme" i],
+button[title*="theme" i],
+[class*="theme-toggle" i],
+[id*="theme-toggle" i],
+[class*="themeToggle"],
+[data-theme-toggle],
+.skip-link,
+[class*="skip-link" i] {
+  display: none !important;
+}
+
+/* Scrolling containers show everything on paper. */
+main, article, section, aside, div {
+  overflow: visible !important;
+}
+
+img, svg, canvas, video, iframe, table {
+  max-width: 100% !important;
+}
+img, video {
+  height: auto !important;
+}
+
+h1, h2, h3, h4 {
+  break-after: avoid !important;
+  page-break-after: avoid !important;
+}
+
+figure, svg, canvas, img, tr, pre, blockquote,
+[class*="card" i], [class*="chart" i], [class*="callout" i], [class*="tile" i] {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+pre, code {
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere;
+}
+
+a[href] {
+  text-decoration-thickness: 0.5pt;
+}

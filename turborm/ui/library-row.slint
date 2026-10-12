@@ -1,0 +1,201 @@
+import { LibraryItem } from "types.slint";
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+import { DragSource, FolderDrop } from "drag.slint";
+
+// Flat table row: bottom rule only, hover tint, accent bar when selected.
+export component LibraryRowItem inherits Rectangle {
+    in property <LibraryItem> item;
+    in property <length> type-column;
+    in property <length> modified-column;
+    callback selected(string);
+    callback activated(string);
+    callback context-menu(string, length, length);
+
+    background: root.item.selected || item-drop.has-drag
+        ? Theme.selected-fill
+        : (touch.has-hover ? Theme.bg-deep : Theme.bg);
+    accessible-role: list-item;
+    accessible-label: root.item.title;
+    accessible-item-selected: root.item.selected;
+
+    Rectangle {
+        y: parent.height - 1px;
+        width: parent.width;
+        height: 1px;
+        background: Theme.rule;
+    }
+    if root.item.selected || item-drop.has-drag: Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 2px;
+        height: parent.height - 1px;
+        background: item-drop.has-drag ? Theme.accent : Theme.ink;
+    }
+
+    Icon {
+        x: 16px;
+        y: (parent.height - self.height) / 2;
+        width: 18px;
+        height: 18px;
+        name: !root.item.is-folder ? "doc" : root.item.has-content ? "folder-filled" : "folder";
+        stroke: root.item.selected || root.item.has-content ? Theme.ink : Theme.muted;
+    }
+
+    if root.item.pinned: Icon {
+        x: 42px;
+        y: (parent.height - self.height) / 2;
+        width: 11px;
+        height: 11px;
+        name: "star";
+        stroke: Theme.ink;
+    }
+
+    // Name column, with the warning replacing the subtitle when present.
+    VerticalLayout {
+        x: root.item.pinned ? 59px : 44px;
+        y: 0px;
+        width: max(60px, parent.width - self.x - root.type-column - root.modified-column - 40px);
+        height: parent.height;
+        alignment: center;
+        spacing: 3px;
+        Text {
+            text: root.item.title;
+            color: Theme.ink;
+            font-size: Theme.text-body;
+            font-weight: 500;
+            letter-spacing: -0.1px;
+            overflow: elide;
+            accessible-role: none;
+        }
+        if root.item.warning != "": Text {
+            text: root.item.warning;
+            color: Theme.warn;
+            font-size: Theme.text-micro;
+            overflow: elide;
+            accessible-role: none;
+        }
+    }
+
+    Text {
+        x: parent.width - root.type-column - root.modified-column - 42px;
+        y: 0px;
+        width: root.type-column;
+        height: parent.height;
+        text: root.item.type-label;
+        color: Theme.muted;
+        font-size: Theme.text-small;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    Text {
+        x: parent.width - root.modified-column - 42px;
+        y: 0px;
+        width: root.modified-column;
+        height: parent.height;
+        text: root.item.is-folder ? "—" : root.item.subtitle;
+        color: Theme.muted;
+        font-size: Theme.text-small;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    Icon {
+        x: parent.width - 30px;
+        y: (parent.height - self.height) / 2;
+        width: 14px;
+        height: 14px;
+        name: "chevron";
+        stroke: touch.has-hover ? Theme.ink : Theme.rule-strong;
+    }
+
+    // Folders take drops, and open when a drag rests on them.
+    item-drop := FolderDrop {
+        enabled: root.item.is-folder;
+        folder-id: root.item.entry-id;
+        folder-title: root.item.title;
+        open-folder(id) => {
+            root.activated(id);
+        }
+        DragSource {
+            entry-id: root.item.entry-id;
+            title: root.item.title;
+            is-folder: root.item.is-folder;
+            touch := TouchArea {
+                pointer-event(event) => {
+                    if (event.button == PointerEventButton.right
+                        && event.kind == PointerEventKind.down) {
+                        root.context-menu(
+                            root.item.entry-id,
+                            root.absolute-position.x + self.mouse-x,
+                            root.absolute-position.y + self.mouse-y);
+                    }
+                }
+                clicked => {
+                    root.selected(root.item.entry-id);
+                }
+                double-clicked => {
+                    root.activated(root.item.entry-id);
+                }
+            }
+        }
+    }
+}
+
+// Column labels above the rows: small muted text on bg-deep, rules top/bottom.
+export component LibraryRowHeader inherits Rectangle {
+    in property <length> type-column;
+    in property <length> modified-column;
+    height: 33px;
+    background: Theme.bg-deep;
+    border-radius: Theme.radius;
+
+    Rectangle {
+        y: 0px;
+        width: parent.width;
+        height: 1px;
+        background: Theme.rule;
+    }
+    Rectangle {
+        y: parent.height - 1px;
+        width: parent.width;
+        height: 1px;
+        background: Theme.rule;
+    }
+    Text {
+        x: 16px;
+        y: 0px;
+        height: parent.height;
+        text: "Name";
+        color: Theme.muted;
+        font-size: Theme.text-micro;
+        font-weight: 500;
+        letter-spacing: 0.4px;
+        vertical-alignment: center;
+    }
+    Text {
+        x: parent.width - root.type-column - root.modified-column - 42px;
+        y: 0px;
+        width: root.type-column;
+        height: parent.height;
+        text: "Type";
+        color: Theme.muted;
+        font-size: Theme.text-micro;
+        font-weight: 500;
+        letter-spacing: 0.4px;
+        vertical-alignment: center;
+    }
+    Text {
+        x: parent.width - root.modified-column - 42px;
+        y: 0px;
+        width: root.modified-column;
+        height: parent.height;
+        text: "Modified";
+        color: Theme.muted;
+        font-size: Theme.text-micro;
+        font-weight: 500;
+        letter-spacing: 0.4px;
+        vertical-alignment: center;
+    }
+}

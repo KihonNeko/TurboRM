@@ -1,0 +1,446 @@
+import { LibraryItem, LibraryRow, FolderTarget } from "types.slint";
+import { Theme } from "theme.slint";
+import { Sidebar } from "sidebar.slint";
+import { TopBar } from "top-bar.slint";
+import { FolderStrip } from "folder-strip.slint";
+import { LibraryList } from "library-list.slint";
+import { MoveDialog } from "move-dialog.slint";
+import { NewFolderDialog } from "new-folder-dialog.slint";
+import { SettingsDialog } from "settings-dialog.slint";
+import { StatusBar } from "status-bar.slint";
+import { SearchField } from "search-field.slint";
+import { SortControl } from "sort-control.slint";
+import { ContextMenu } from "context-menu.slint";
+import { DragCatcher, DragLabel, DragState, FolderDrop } from "drag.slint";
+
+export component LibraryScreen inherits Rectangle {
+    background: Theme.bg;
+
+    in property <string> title-text: "TurboRM";
+    in property <string> heading-text: "My files";
+    in property <string> heading-subtitle;
+    in property <string> search-text;
+    in property <string> error-text;
+    in property <string> status-text;
+    in property <string> selection-title;
+    in property <bool> busy;
+    in property <bool> paired;
+    in property <bool> demo-mode;
+    // "", "notebook", "pdf", "epub" or "pinned". Rust owns it.
+    in property <string> filter;
+    // "modified" or "name". Rust owns it.
+    in property <string> sort;
+    in property <bool> covers-view;
+    in property <bool> can-go-back;
+    in property <bool> can-open;
+    in property <bool> can-move;
+    in property <bool> can-export-original;
+    in property <bool> can-export-native;
+    // Preview PDF and SVG pages, made without opening the document.
+    in property <bool> can-export-pages;
+    in property <bool> can-import;
+    in property <bool> can-verify-import;
+    in property <bool> move-visible;
+    in property <bool> can-create-folder;
+    in property <bool> can-create-inside;
+    // The "New folder" dialog. Rust owns its name, message and parent.
+    in property <bool> folder-dialog-visible;
+    in property <string> folder-dialog-name;
+    in property <string> folder-dialog-error;
+    in property <string> folder-dialog-location;
+    // The Settings dialog. Rust owns every value it shows.
+    in property <bool> settings-visible;
+    in property <string> cache-mode;
+    in property <string> storage-text;
+    in property <string> library-size-text;
+    in property <string> offline-text;
+    in property <bool> offline-warning;
+    in property <string> offline-summary;
+    in property <bool> can-clear-cache;
+    in property <int> cover-columns: 1;
+    in property <[LibraryItem]> entries;
+    in property <[LibraryRow]> folder-rows;
+    in property <[LibraryRow]> cover-rows;
+    in property <[FolderTarget]> breadcrumbs;
+    in property <[FolderTarget]> move-targets;
+
+    callback search-changed(string);
+    callback filter-changed(string);
+    callback sort-changed(string);
+    callback view-changed(bool);
+    callback navigate(string);
+    callback go-back();
+    callback select-entry(string);
+    callback clear-selection();
+    callback activate-entry(string);
+    callback open-selected();
+    callback refresh();
+    callback import-requested();
+    callback move-requested();
+    callback move-to(string);
+    callback move-cancelled();
+    callback export-original();
+    callback export-native();
+    callback export-pdf();
+    callback export-svg();
+    callback verify-import();
+    callback reconnect-requested();
+    callback viewport-changed(float);
+    callback cover-visible(string);
+    callback theme-toggled();
+    callback context-menu-requested(string);
+    callback new-folder-requested();
+    callback new-folder-inside-requested();
+    callback folder-name-edited(string);
+    callback folder-create-confirmed();
+    callback folder-dialog-cancelled();
+    callback settings-requested();
+    callback settings-closed();
+    callback cache-mode-changed(string);
+    callback clear-cache-requested();
+
+    // Below 900px the rail narrows; content is never hidden behind it.
+    in property <bool> compact;
+    property <length> rail: root.compact ? 200px : 240px;
+    property <length> gutter: root.compact ? 20px : 28px;
+    property <bool> has-selection: root.selection-title != "";
+
+    public function focus-library() {
+        keys.focus();
+    }
+
+    // Under everything else: follows a drag and catches stray drops.
+    DragCatcher {
+        keys := FocusScope {
+            key-pressed(event) => {
+                if (event.text == Key.Escape && root.has-selection) {
+                    root.clear-selection();
+                    return accept;
+                }
+                if (event.text == Key.Return && root.can-open) {
+                    root.open-selected();
+                    return accept;
+                }
+                if (event.text == Key.Backspace && root.can-go-back) {
+                    root.go-back();
+                    return accept;
+                }
+                return reject;
+            }
+
+            HorizontalLayout {
+                spacing: 0px;
+                Sidebar {
+                    min-width: root.rail;
+                    max-width: root.rail;
+                    horizontal-stretch: 0;
+                    filter: root.filter;
+                    paired: root.paired;
+                    demo-mode: root.demo-mode;
+                    offline-summary: root.offline-summary;
+                    filter-changed(value) => {
+                        root.filter-changed(value);
+                    }
+                    theme-toggled => {
+                        root.theme-toggled();
+                    }
+                    settings-requested => {
+                        root.settings-requested();
+                    }
+                }
+
+                // Dropping anywhere on the folder being browsed moves the entry
+                // into it; folders and breadcrumbs inside take their own drops.
+                FolderDrop {
+                    horizontal-stretch: 1;
+                    folder-id: ".";
+                    folder-title: root.heading-text;
+                    spring-open: false;
+                    VerticalLayout {
+                        spacing: 0px;
+
+                        TopBar {
+                            breadcrumbs: root.breadcrumbs;
+                            busy: root.busy;
+                            demo-mode: root.demo-mode;
+                            covers-view: root.covers-view;
+                            has-selection: root.has-selection;
+                            can-import: root.can-import;
+                            can-create-folder: root.can-create-folder;
+                            can-open: root.can-open;
+                            can-move: root.can-move;
+                            can-export-original: root.can-export-original;
+                            can-export-native: root.can-export-native;
+                            can-export-pages: root.can-export-pages;
+                            can-verify-import: root.can-verify-import;
+                            compact: root.compact;
+                            navigate(id) => {
+                                root.navigate(id);
+                            }
+                            clear-selection => {
+                                root.clear-selection();
+                            }
+                            refresh => {
+                                root.refresh();
+                            }
+                            import-requested => {
+                                root.import-requested();
+                            }
+                            new-folder-requested => {
+                                root.new-folder-requested();
+                            }
+                            open-selected => {
+                                root.open-selected();
+                            }
+                            move-requested => {
+                                root.move-requested();
+                            }
+                            export-original => {
+                                root.export-original();
+                            }
+                            export-native => {
+                                root.export-native();
+                            }
+                            export-pdf => {
+                                root.export-pdf();
+                            }
+                            export-svg => {
+                                root.export-svg();
+                            }
+                            verify-import => {
+                                root.verify-import();
+                            }
+                            view-changed(covers) => {
+                                root.view-changed(covers);
+                            }
+                        }
+
+                        // Page heading: h1 and the count line on the left, the search
+                        // field and the sort control on the right.
+                        HorizontalLayout {
+                            height: 96px;
+                            padding-left: root.gutter;
+                            padding-right: root.gutter;
+                            padding-top: 26px;
+                            padding-bottom: 18px;
+                            spacing: 16px;
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                alignment: center;
+                                spacing: 5px;
+                                Text {
+                                    text: root.heading-text;
+                                    color: Theme.ink;
+                                    font-size: root.compact ? 24px : Theme.text-heading;
+                                    font-weight: 600;
+                                    letter-spacing: -1.0px;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: root.heading-subtitle;
+                                    color: Theme.muted;
+                                    font-size: Theme.text-small;
+                                    overflow: elide;
+                                }
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                horizontal-stretch: 0;
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    alignment: end;
+                                    SearchField {
+                                        width: root.compact ? 150px : 235px;
+                                        horizontal-stretch: 0;
+                                        text: root.search-text;
+                                        placeholder-text: "Search";
+                                        edited(text) => {
+                                            root.search-changed(text);
+                                        }
+                                    }
+                                    SortControl {
+                                        sort: root.sort;
+                                        sort-changed(value) => {
+                                            root.sort-changed(value);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if root.folder-rows.length > 0: HorizontalLayout {
+                            padding-left: root.gutter;
+                            padding-right: root.gutter;
+                            padding-bottom: 10px;
+                            FolderStrip {
+                                horizontal-stretch: 1;
+                                rows: root.folder-rows;
+                                select-entry(id) => {
+                                    root.select-entry(id);
+                                }
+                                navigate(id) => {
+                                    root.navigate(id);
+                                }
+                                context-menu(id, x, y) => {
+                                    root.open-context-menu(id, x, y);
+                                }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            vertical-stretch: 1;
+                            padding-left: root.gutter;
+                            padding-right: root.gutter;
+                            padding-bottom: 8px;
+                            LibraryList {
+                                horizontal-stretch: 1;
+                                cover-columns: root.cover-columns;
+                                covers-view: root.covers-view;
+                                entries: root.entries;
+                                cover-rows: root.cover-rows;
+                                select-entry(id) => {
+                                    root.select-entry(id);
+                                }
+                                activate-entry(id) => {
+                                    root.activate-entry(id);
+                                }
+                                cover-visible(id) => {
+                                    root.cover-visible(id);
+                                }
+                                viewport-changed(width) => {
+                                    root.viewport-changed(width);
+                                }
+                                context-menu(id, x, y) => {
+                                    root.open-context-menu(id, x, y);
+                                }
+                            }
+                        }
+
+                        StatusBar {
+                            status-text: root.status-text;
+                            error-text: root.error-text;
+                            busy: root.busy;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // A PopupWindow cannot have its position written from the enclosing
+    // component, so the anchor lives here and the popup binds to it.
+    property <length> menu-x;
+    property <length> menu-y;
+
+    // Rust selects the entry before the menu opens, so its items read the same
+    // capability flags the toolbar does.
+    function open-context-menu(id: string, x: length, y: length) {
+        root.context-menu-requested(id);
+        root.menu-x = clamp(x, 0px, max(0px, root.width - 218px));
+        root.menu-y = clamp(y, 0px, max(0px, root.height - 262px));
+        menu.show();
+    }
+
+    menu := ContextMenu {
+        x: root.menu-x;
+        y: root.menu-y;
+        can-open: root.can-open;
+        can-move: root.can-move;
+        can-export-original: root.can-export-original;
+        can-export-native: root.can-export-native;
+        can-export-pages: root.can-export-pages;
+        can-verify-import: root.can-verify-import;
+        can-create-inside: root.can-create-inside;
+        open-selected => {
+            root.open-selected();
+        }
+        move-requested => {
+            root.move-requested();
+        }
+        export-original => {
+            root.export-original();
+        }
+        export-native => {
+            root.export-native();
+        }
+        export-pdf => {
+            root.export-pdf();
+        }
+        export-svg => {
+            root.export-svg();
+        }
+        verify-import => {
+            root.verify-import();
+        }
+        new-folder-inside => {
+            root.new-folder-inside-requested();
+        }
+    }
+
+    // Demo-only helper so a screenshot can show the menu without a pointer.
+    public function show-context-menu-at(x: length, y: length) {
+        root.menu-x = x;
+        root.menu-y = y;
+        menu.show();
+    }
+
+    DragLabel {
+        x: DragState.x - root.absolute-position.x + 14px;
+        y: DragState.y - root.absolute-position.y + 12px;
+    }
+
+    if root.move-visible: MoveDialog {
+        width: parent.width;
+        height: parent.height;
+        targets: root.move-targets;
+        move-to(id) => {
+            root.move-to(id);
+        }
+        cancelled => {
+            root.move-cancelled();
+        }
+    }
+
+    if root.folder-dialog-visible: NewFolderDialog {
+        width: parent.width;
+        height: parent.height;
+        name: root.folder-dialog-name;
+        error: root.folder-dialog-error;
+        location: root.folder-dialog-location;
+        edited(text) => {
+            root.folder-name-edited(text);
+        }
+        create => {
+            root.folder-create-confirmed();
+            // Rust closes the dialog only when the name was accepted.
+            if !root.folder-dialog-visible {
+                keys.focus();
+            }
+        }
+        cancelled => {
+            root.folder-dialog-cancelled();
+            keys.focus();
+        }
+    }
+
+    if root.settings-visible: SettingsDialog {
+        width: parent.width;
+        height: parent.height;
+        cache-mode: root.cache-mode;
+        storage-text: root.storage-text;
+        library-size-text: root.library-size-text;
+        offline-text: root.offline-text;
+        offline-warning: root.offline-warning;
+        can-clear-cache: root.can-clear-cache;
+        cache-mode-changed(mode) => {
+            root.cache-mode-changed(mode);
+        }
+        clear-cache => {
+            root.clear-cache-requested();
+        }
+        closed => {
+            root.settings-closed();
+            keys.focus();
+        }
+    }
+}

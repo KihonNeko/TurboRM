@@ -1,0 +1,287 @@
+import { FolderTarget } from "types.slint";
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+import { ToolbarAction, MenuItem } from "toolbar-action.slint";
+import { DragState, FolderDrop } from "drag.slint";
+
+// 72px toolbar. Left: the breadcrumb, or a "Cancel" ghost while something is
+// selected. Right: icon-above-label actions in the reference's order.
+export component TopBar inherits Rectangle {
+    in property <[FolderTarget]> breadcrumbs;
+    in property <bool> busy;
+    in property <bool> demo-mode;
+    in property <bool> covers-view;
+    in property <bool> has-selection;
+    in property <bool> can-create-folder;
+    in property <bool> can-import;
+    in property <bool> can-open;
+    in property <bool> can-move;
+    in property <bool> can-export-original;
+    in property <bool> can-export-native;
+    in property <bool> can-export-pages;
+    in property <bool> can-verify-import;
+    in property <bool> compact;
+    callback navigate(string);
+    callback clear-selection();
+    callback refresh();
+    callback new-folder-requested();
+    callback import-requested();
+    callback open-selected();
+    callback move-requested();
+    callback export-original();
+    callback export-native();
+    callback export-pdf();
+    callback export-svg();
+    callback verify-import();
+    callback view-changed(bool);
+
+    height: 72px;
+    background: Theme.bg;
+
+    Rectangle {
+        y: parent.height - 1px;
+        width: parent.width;
+        height: 1px;
+        background: Theme.rule;
+    }
+
+    HorizontalLayout {
+        height: parent.height;
+        padding-left: root.compact ? 16px : 24px;
+        padding-right: root.compact ? 12px : 18px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+        spacing: root.compact ? 2px : 4px;
+
+        // Left slot: Cancel replaces the breadcrumb while a selection exists.
+        Rectangle {
+            horizontal-stretch: 1;
+            min-width: 60px;
+            clip: true;
+
+            // A drag shows the breadcrumb again, so its folders take drops.
+            if root.has-selection && !DragState.active: Rectangle {
+                x: 0px;
+                y: (parent.height - self.height) / 2;
+                width: cancel-label.preferred-width + 24px;
+                height: 32px;
+                border-radius: 4px;
+                background: cancel-touch.has-hover ? Theme.surface-2 : transparent;
+                accessible-role: button;
+                accessible-label: "Cancel the selection";
+                accessible-action-default => {
+                    root.clear-selection();
+                }
+                cancel-label := Text {
+                    x: 12px;
+                    y: 0px;
+                    height: parent.height;
+                    text: "Cancel";
+                    color: Theme.ink;
+                    font-size: Theme.text-body;
+                    font-weight: 500;
+                    vertical-alignment: center;
+                    accessible-role: none;
+                }
+                cancel-touch := TouchArea {
+                    clicked => {
+                        root.clear-selection();
+                    }
+                }
+            }
+
+            // Breadcrumb: muted segments joined by "/", the last one in ink.
+            if !root.has-selection || DragState.active: HorizontalLayout {
+                y: (parent.height - 24px) / 2;
+                height: 24px;
+                width: parent.width;
+                spacing: 0px;
+                alignment: start;
+                for crumb[index] in root.breadcrumbs: HorizontalLayout {
+                    spacing: 0px;
+                    if index > 0: Text {
+                        text: "/";
+                        color: Theme.rule-strong;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                        width: 20px;
+                        horizontal-alignment: center;
+                        accessible-role: none;
+                    }
+                    Rectangle {
+                        max-width: 190px;
+                        horizontal-stretch: 0;
+                        border-radius: 4px;
+                        background: crumb-drop.has-drag
+                            ? Theme.selected-fill
+                            : (crumb-touch.has-hover ? Theme.surface-2 : transparent);
+                        border-width: crumb-drop.has-drag ? 1px : 0px;
+                        border-color: Theme.accent;
+                        accessible-role: button;
+                        accessible-label: crumb.title;
+                        accessible-action-default => {
+                            root.navigate(crumb.entry-id);
+                        }
+                        crumb-label := Text {
+                            x: 5px;
+                            y: 0px;
+                            width: parent.width - 10px;
+                            height: parent.height;
+                            text: crumb.title;
+                            color: index == root.breadcrumbs.length - 1 ? Theme.ink : Theme.muted;
+                            font-size: 12px;
+                            font-weight: index == root.breadcrumbs.length - 1 ? 500 : 400;
+                            vertical-alignment: center;
+                            overflow: elide;
+                            accessible-role: none;
+                        }
+                        min-width: min(190px, crumb-label.preferred-width + 10px);
+                        preferred-width: self.min-width;
+                        crumb-drop := FolderDrop {
+                            folder-id: crumb.entry-id;
+                            folder-title: crumb.title;
+                            // The folder being browsed is already open.
+                            spring-open: index < root.breadcrumbs.length - 1;
+                            open-folder(id) => {
+                                root.navigate(id);
+                            }
+                            crumb-touch := TouchArea {
+                                clicked => {
+                                    root.navigate(crumb.entry-id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        ToolbarAction {
+            icon: "folder-plus";
+            label: "New folder";
+            enabled: root.can-create-folder && !root.busy && !root.demo-mode;
+            clicked => {
+                root.new-folder-requested();
+            }
+        }
+        ToolbarAction {
+            icon: "import";
+            label: "Import";
+            enabled: root.can-import && !root.busy;
+            clicked => {
+                root.import-requested();
+            }
+        }
+        ToolbarAction {
+            icon: "refresh";
+            label: "Refresh";
+            enabled: !root.busy && !root.demo-mode;
+            clicked => {
+                root.refresh();
+            }
+        }
+        ToolbarAction {
+            icon: "open";
+            label: "Open";
+            enabled: root.can-open && !root.busy;
+            clicked => {
+                root.open-selected();
+            }
+        }
+        ToolbarAction {
+            icon: "move";
+            label: "Move";
+            enabled: root.can-move && !root.busy;
+            clicked => {
+                root.move-requested();
+            }
+        }
+
+        // Export offers every export command through a popup that is
+        // anchored under its button.
+        Rectangle {
+            horizontal-stretch: 0;
+            min-width: export-action.min-width;
+            preferred-width: self.min-width;
+            export-action := ToolbarAction {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: parent.height;
+                icon: "export";
+                label: "Export";
+                enabled: (root.can-export-original || root.can-export-native || root.can-export-pages) && !root.busy;
+                clicked => {
+                    export-menu.show();
+                }
+            }
+            export-menu := PopupWindow {
+                x: 0px;
+                y: parent.height + 4px;
+                width: 190px;
+                height: 130px;
+                close-policy: close-on-click-outside;
+                Rectangle {
+                    width: parent.width;
+                    height: parent.height;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: Theme.rule-strong;
+                    border-radius: Theme.radius;
+                    VerticalLayout {
+                        padding: 4px;
+                        spacing: 0px;
+                        MenuItem {
+                            text: "Original PDF/EPUB";
+                            enabled: root.can-export-original;
+                            clicked => {
+                                root.export-original();
+                                export-menu.close();
+                            }
+                        }
+                        MenuItem {
+                            text: "Native bundle";
+                            enabled: root.can-export-native;
+                            clicked => {
+                                root.export-native();
+                                export-menu.close();
+                            }
+                        }
+                        MenuItem {
+                            text: "Preview PDF";
+                            enabled: root.can-export-pages;
+                            clicked => {
+                                root.export-pdf();
+                                export-menu.close();
+                            }
+                        }
+                        MenuItem {
+                            text: "SVG (every page)";
+                            enabled: root.can-export-pages;
+                            clicked => {
+                                root.export-svg();
+                                export-menu.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        ToolbarAction {
+            icon: "verify";
+            label: root.compact ? "Verify" : "Verify import";
+            enabled: root.can-verify-import && !root.busy;
+            clicked => {
+                root.verify-import();
+            }
+        }
+        ToolbarAction {
+            icon: root.covers-view ? "list" : "grid";
+            label: root.covers-view ? "List" : "Covers";
+            clicked => {
+                root.view-changed(!root.covers-view);
+            }
+        }
+    }
+}

@@ -1,0 +1,228 @@
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+import { PrimaryAction } from "flat-action.slint";
+
+export component PairingScreen inherits Rectangle {
+    in property <string> error-text;
+    in property <string> status-text;
+    in property <bool> busy;
+    in property <bool> demo-mode;
+    in property <bool> checking;
+    // The typed code lives here so the card can hide the field while the
+    // keyring check runs without losing the binding.
+    out property <string> code;
+    callback pair(string);
+    callback open-connect-page();
+    callback retry();
+
+    background: Theme.bg;
+
+    // Codes are eight characters; anything else leaves the button disabled.
+    property <bool> code-valid: root.code.character-count == 8;
+    property <bool> code-focused;
+
+    public function clear-code() {
+        root.code = "";
+    }
+
+    Rectangle {
+        width: min(420px, parent.width - 48px);
+        height: card-layout.preferred-height;
+        x: (parent.width - self.width) / 2;
+        y: max(32px, (parent.height - self.height) / 2 - 24px);
+        background: Theme.surface;
+        border-width: 1px;
+        border-color: Theme.rule;
+        border-radius: 8px;
+
+        card-layout := VerticalLayout {
+            padding: 28px;
+            spacing: 0px;
+
+            Rectangle {
+                height: 34px;
+                horizontal-stretch: 1;
+                Rectangle {
+                    width: 34px;
+                    height: 34px;
+                    border-radius: Theme.radius-card;
+                    background: Theme.ink;
+                    Icon {
+                        name: "doc";
+                        width: 19px;
+                        height: 19px;
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        stroke: Theme.bg;
+                        stroke-width: 1.6px;
+                    }
+                }
+            }
+
+            Rectangle { height: 18px; }
+
+            Text {
+                text: root.checking ? "Checking system keyring…" : "Connect your reMarkable";
+                color: Theme.ink;
+                font-size: 22px;
+                font-weight: 600;
+                letter-spacing: -0.8px;
+                wrap: word-wrap;
+            }
+
+            Rectangle { height: 10px; }
+
+            Text {
+                text: root.checking
+                    ? "Looking for a saved device token."
+                    : "Open the device connection page and enter its one-time 8-character code.";
+                color: Theme.ink-2;
+                font-size: Theme.text-body;
+                wrap: word-wrap;
+            }
+
+            if !root.checking: Rectangle { height: 12px; }
+
+            // The connection link opens in the desktop browser.
+            if !root.checking: Rectangle {
+                height: 26px;
+                horizontal-stretch: 1;
+                accessible-role: button;
+                accessible-label: "Open my.remarkable.com/device/browser/connect";
+                accessible-action-default => {
+                    root.open-connect-page();
+                }
+                HorizontalLayout {
+                    spacing: 7px;
+                    alignment: start;
+                    Icon {
+                        name: "link";
+                        width: 14px;
+                        height: 14px;
+                        y: (parent.height - self.height) / 2;
+                        stroke: Theme.accent;
+                        stroke-width: 1.6px;
+                    }
+                    link-text := Text {
+                        text: "my.remarkable.com/device/browser/connect";
+                        color: Theme.accent;
+                        font-size: Theme.text-body;
+                        font-weight: link-touch.has-hover ? 600 : 500;
+                        vertical-alignment: center;
+                        accessible-role: none;
+                    }
+                }
+                link-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.open-connect-page();
+                    }
+                }
+            }
+
+            if !root.checking: Rectangle { height: 20px; }
+
+            if !root.checking: Rectangle {
+                height: 42px;
+                background: Theme.bg;
+                border-width: 1px;
+                border-color: root.code-focused ? Theme.accent : Theme.rule;
+                border-radius: Theme.radius;
+                forward-focus: code-input;
+                accessible-role: text-input;
+                accessible-label: "8-character pairing code";
+
+                Text {
+                    x: 13px;
+                    y: 0px;
+                    width: parent.width - 26px;
+                    height: parent.height;
+                    text: root.code == "" ? "8-character code" : "";
+                    color: Theme.muted;
+                    font-size: 15px;
+                    font-family: "monospace";
+                    vertical-alignment: center;
+                    accessible-role: none;
+                }
+                code-input := TextInput {
+                    x: 13px;
+                    y: 1px;
+                    width: parent.width - 26px;
+                    height: parent.height - 2px;
+                    text: root.code;
+                    color: Theme.ink;
+                    font-size: 15px;
+                    font-family: "monospace";
+                    letter-spacing: 2px;
+                    single-line: true;
+                    vertical-alignment: center;
+                    enabled: !root.busy && !root.demo-mode;
+                    selection-background-color: Theme.accent;
+                    selection-foreground-color: Theme.accent-ink;
+                    edited => {
+                        root.code = self.text;
+                    }
+                    changed has-focus => {
+                        root.code-focused = self.has-focus;
+                    }
+                    accepted => {
+                        if (root.code-valid && !root.busy && !root.demo-mode) {
+                            root.pair(root.code);
+                        }
+                    }
+                }
+            }
+
+            if !root.checking: Rectangle { height: 14px; }
+
+            if !root.checking: PrimaryAction {
+                text: "Pair device";
+                horizontal-stretch: 1;
+                enabled: root.code-valid && !root.busy && !root.demo-mode;
+                clicked => {
+                    root.pair(root.code);
+                }
+            }
+
+            if root.checking: PrimaryAction {
+                text: "Retry connection check";
+                horizontal-stretch: 1;
+                enabled: !root.busy;
+                clicked => {
+                    root.retry();
+                }
+            }
+
+            Rectangle { height: 16px; }
+
+            Text {
+                text: root.demo-mode
+                    ? "Demo mode · pairing is disabled"
+                    : "The device token is stored in your system keyring. It is never saved in this app's files.";
+                color: Theme.muted;
+                font-size: Theme.text-small;
+                wrap: word-wrap;
+            }
+
+            if root.busy || (root.status-text != "" && !root.demo-mode): Rectangle { height: 12px; }
+
+            if root.busy || (root.status-text != "" && !root.demo-mode): Text {
+                text: root.busy
+                    ? (root.status-text == "" ? "Working…" : "Working… · " + root.status-text)
+                    : root.status-text;
+                color: Theme.ink-2;
+                font-size: Theme.text-small;
+                wrap: word-wrap;
+            }
+
+            if root.error-text != "": Rectangle { height: 12px; }
+
+            if root.error-text != "": Text {
+                text: root.error-text;
+                color: Theme.ko;
+                font-size: Theme.text-small;
+                wrap: word-wrap;
+            }
+        }
+    }
+}

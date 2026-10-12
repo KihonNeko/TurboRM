@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=TurboRM
+Comment=Browse and read your reMarkable Cloud library on Linux (unofficial)
+Exec=turborm
+Icon=turborm
+Terminal=false
+Categories=Office;Viewer;
+StartupWMClass=turborm

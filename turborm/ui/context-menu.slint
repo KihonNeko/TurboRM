@@ -1,0 +1,103 @@
+import { Theme } from "theme.slint";
+import { MenuItem } from "toolbar-action.slint";
+
+// Right-click menu for a card, folder tile or table row. Rust selects the
+// entry first, so the enabled flags are the same ones the toolbar uses.
+export component ContextMenu inherits PopupWindow {
+    in property <bool> can-open;
+    in property <bool> can-move;
+    in property <bool> can-export-original;
+    in property <bool> can-export-native;
+    in property <bool> can-export-pages;
+    in property <bool> can-verify-import;
+    in property <bool> can-create-inside;
+    callback open-selected();
+    callback move-requested();
+    callback export-original();
+    callback export-native();
+    callback export-pdf();
+    callback export-svg();
+    callback verify-import();
+    callback new-folder-inside();
+
+    width: 210px;
+    height: 254px;
+    close-policy: close-on-click-outside;
+
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: Theme.surface;
+        border-width: 1px;
+        border-color: Theme.rule-strong;
+        border-radius: Theme.radius;
+        VerticalLayout {
+            padding: 4px;
+            spacing: 0px;
+            MenuItem {
+                text: "Open";
+                enabled: root.can-open;
+                clicked => {
+                    root.open-selected();
+                    root.close();
+                }
+            }
+            MenuItem {
+                text: "Move…";
+                enabled: root.can-move;
+                clicked => {
+                    root.move-requested();
+                    root.close();
+                }
+            }
+            MenuItem {
+                text: "New folder inside…";
+                enabled: root.can-create-inside;
+                clicked => {
+                    root.new-folder-inside();
+                    root.close();
+                }
+            }
+            MenuItem {
+                text: "Export original";
+                enabled: root.can-export-original;
+                clicked => {
+                    root.export-original();
+                    root.close();
+                }
+            }
+            MenuItem {
+                text: "Export native";
+                enabled: root.can-export-native;
+                clicked => {
+                    root.export-native();
+                    root.close();
+                }
+            }
+            MenuItem {
+                text: "Export PDF";
+                enabled: root.can-export-pages;
+                clicked => {
+                    root.export-pdf();
+                    root.close();
+                }
+            }
+            MenuItem {
+                text: "Export SVG";
+                enabled: root.can-export-pages;
+                clicked => {
+                    root.export-svg();
+                    root.close();
+                }
+            }
+            MenuItem {
+                text: "Verify import";
+                enabled: root.can-verify-import;
+                clicked => {
+                    root.verify-import();
+                    root.close();
+                }
+            }
+        }
+    }
+}

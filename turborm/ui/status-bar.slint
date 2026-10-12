@@ -1,0 +1,38 @@
+import { Theme } from "theme.slint";
+
+// One unobtrusive 28px line. Errors use the ko colour; busy shows an accent dot.
+export component StatusBar inherits Rectangle {
+    in property <string> status-text;
+    in property <string> error-text;
+    in property <bool> busy;
+    height: 28px;
+    background: Theme.bg-deep;
+
+    Rectangle {
+        y: 0px;
+        width: parent.width;
+        height: 1px;
+        background: Theme.rule;
+    }
+    if root.busy && root.error-text == "": Rectangle {
+        x: 20px;
+        y: (parent.height - self.height) / 2;
+        width: 5px;
+        height: 5px;
+        border-radius: 2.5px;
+        background: Theme.accent;
+    }
+    Text {
+        x: root.busy && root.error-text == "" ? 32px : 20px;
+        y: 0px;
+        width: parent.width - self.x - 20px;
+        height: parent.height;
+        text: root.error-text != ""
+            ? root.error-text
+            : (root.busy ? (root.status-text == "" ? "Working…" : "Working… · " + root.status-text) : root.status-text);
+        color: root.error-text == "" ? Theme.muted : Theme.ko;
+        font-size: Theme.text-small;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+}

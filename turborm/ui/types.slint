@@ -1,0 +1,31 @@
+export struct LibraryItem {
+    entry-id: string,
+    title: string,
+    subtitle: string,
+    is-folder: bool,
+    // A folder with at least one document or subfolder; drawn filled.
+    has-content: bool,
+    pinned: bool,
+    selected: bool,
+    cover: image,
+    cover-ready: bool,
+    warning: string,
+    // "Notebook", "PDF", "EPUB", "Folder" or "" when the type is not known yet.
+    type-label: string,
+    // A folder tile's width, which Rust fits to the name; 0 for documents.
+    tile-width: length,
+}
+
+export struct LibraryRow { items: [LibraryItem] }
+export struct FolderTarget { entry-id: string, title: string }
+
+// One rendered page tile. Rust owns the model and updates rows in place; the
+// coordinates are logical pixels relative to the page's top-left corner.
+export struct ViewerTile {
+    tile-id: string,
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+    image: image,
+}

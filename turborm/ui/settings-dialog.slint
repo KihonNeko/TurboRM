@@ -1,0 +1,257 @@
+import { Theme } from "theme.slint";
+import { FlatAction, PrimaryAction } from "flat-action.slint";
+
+// One storage choice: a radio mark, a name with its size, and one line on
+// what it trades.
+component StorageOption inherits Rectangle {
+    in property <string> title;
+    in property <string> size;
+    in property <string> detail;
+    in property <bool> checked;
+    callback clicked();
+
+    height: body.preferred-height;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: root.checked ? Theme.accent : (touch.has-hover ? Theme.rule-strong : Theme.rule);
+    background: root.checked ? Theme.selected-fill : Theme.surface;
+    accessible-role: radio-button;
+    accessible-label: root.title;
+    accessible-description: root.detail;
+    accessible-checked: root.checked;
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    body := HorizontalLayout {
+        padding: 12px;
+        spacing: 12px;
+        // The radio mark, top-aligned with the title.
+        VerticalLayout {
+            alignment: start;
+            padding-top: 1px;
+            Rectangle {
+                width: 16px;
+                height: 16px;
+                border-radius: 8px;
+                border-width: root.checked ? 5px : 1.5px;
+                border-color: root.checked ? Theme.accent : Theme.rule-strong;
+                background: Theme.surface;
+            }
+        }
+        VerticalLayout {
+            spacing: 3px;
+            horizontal-stretch: 1;
+            HorizontalLayout {
+                spacing: 8px;
+                Text {
+                    text: root.title;
+                    color: Theme.ink;
+                    font-size: Theme.text-body;
+                    font-weight: 600;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                    accessible-role: none;
+                }
+                Text {
+                    text: root.size;
+                    color: Theme.muted;
+                    font-size: Theme.text-small;
+                    vertical-alignment: center;
+                    accessible-role: none;
+                }
+            }
+            Text {
+                text: root.detail;
+                color: Theme.ink-2;
+                font-size: Theme.text-small;
+                wrap: word-wrap;
+                accessible-role: none;
+            }
+        }
+    }
+    touch := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// "Settings": a centred modal card, in the same language as the New folder
+// dialog. Rust owns every value; this component presents them and reports
+// choices. Storage is its first section.
+export component SettingsDialog inherits Rectangle {
+    // "small", "standard" or "full".
+    in property <string> cache-mode;
+    // "Downloaded documents use 450 MB", or "" while measuring.
+    in property <string> storage-text;
+    // "About 2.3 GB", or "" while the library's size is not known.
+    in property <string> library-size-text;
+    // Progress of the full-library download, or "" when there is none.
+    in property <string> offline-text;
+    // The offline line is a problem (e.g. paused for disk space).
+    in property <bool> offline-warning;
+    in property <bool> can-clear-cache;
+    callback cache-mode-changed(string);
+    callback clear-cache();
+    callback closed();
+    background: Theme.overlay;
+
+    // Consume backdrop clicks instead of activating the library underneath.
+    TouchArea {
+        clicked => {
+            root.closed();
+        }
+    }
+
+    Rectangle {
+        width: card.width;
+        height: card.height;
+        x: card.x;
+        y: card.y + 3px;
+        background: Theme.shadow;
+        border-radius: 8px;
+    }
+
+    keys := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Escape) {
+                root.closed();
+                return accept;
+            }
+            return reject;
+        }
+
+        card := Rectangle {
+            width: min(480px, root.width - 48px);
+            height: min(body.preferred-height, root.height - 32px);
+            x: (root.width - self.width) / 2;
+            y: (root.height - self.height) / 2;
+            background: Theme.surface;
+            border-radius: 8px;
+            border-color: Theme.rule;
+            border-width: 1px;
+            clip: true;
+            accessible-role: groupbox;
+            accessible-label: "Settings";
+
+            // Clicks on the card itself do not reach the backdrop.
+            TouchArea { }
+
+            body := VerticalLayout {
+                padding: 20px;
+                spacing: 0px;
+
+                Text {
+                    text: "Settings";
+                    font-size: 17px;
+                    font-weight: 600;
+                    letter-spacing: -0.4px;
+                    color: Theme.ink;
+                }
+                Rectangle { height: 18px; }
+                Text {
+                    text: "STORAGE";
+                    color: Theme.muted;
+                    font-size: Theme.text-micro;
+                    font-weight: 500;
+                    letter-spacing: 0.3px;
+                }
+                Rectangle { height: 6px; }
+                Text {
+                    text: "How much of your library to keep on this computer. More space means documents open faster.";
+                    color: Theme.ink-2;
+                    font-size: Theme.text-small;
+                    wrap: word-wrap;
+                }
+                Rectangle { height: 12px; }
+
+                VerticalLayout {
+                    spacing: 8px;
+                    StorageOption {
+                        title: "Small";
+                        size: "up to 100 MB";
+                        detail: "Keeps only the last few documents you opened. Others download again each time.";
+                        checked: root.cache-mode == "small";
+                        clicked => {
+                            root.cache-mode-changed("small");
+                        }
+                    }
+                    StorageOption {
+                        title: "Standard";
+                        size: "up to 500 MB";
+                        detail: "Keeps the documents you opened recently, so opening them again is instant.";
+                        checked: root.cache-mode == "standard";
+                        clicked => {
+                            root.cache-mode-changed("standard");
+                        }
+                    }
+                    StorageOption {
+                        title: "Full library";
+                        size: root.library-size-text != "" ? root.library-size-text : "whole library";
+                        detail: "Downloads every document in the background and keeps them up to date. The first time takes a while; after that nothing waits for a download. Always leaves 2 GB of disk free.";
+                        checked: root.cache-mode == "full";
+                        clicked => {
+                            root.cache-mode-changed("full");
+                        }
+                    }
+                }
+
+                // Space for the progress line is kept, so the card does not
+                // jump when the download starts or ends.
+                Rectangle {
+                    height: 30px;
+                    Text {
+                        x: 1px;
+                        y: 10px;
+                        width: parent.width - 2px;
+                        text: root.offline-text;
+                        color: root.offline-warning ? Theme.warn : Theme.muted;
+                        font-size: Theme.text-small;
+                        overflow: elide;
+                    }
+                }
+                Rectangle { height: 8px; }
+
+                HorizontalLayout {
+                    height: 36px;
+                    spacing: 8px;
+                    Text {
+                        text: root.storage-text;
+                        color: Theme.muted;
+                        font-size: Theme.text-small;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                        overflow: elide;
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        FlatAction {
+                            text: "Clear";
+                            description: root.cache-mode == "full"
+                                ? "Choose Small or Standard to clear the downloaded documents"
+                                : "Remove the downloaded documents from this computer";
+                            enabled: root.can-clear-cache;
+                            clicked => {
+                                root.clear-cache();
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        PrimaryAction {
+                            text: "Done";
+                            clicked => {
+                                root.closed();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    init => {
+        keys.focus();
+    }
+}

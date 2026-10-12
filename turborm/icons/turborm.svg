@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- TurboRM: an ink T on a lifted sheet of paper, with a pen-drawn RM running up the stem. -->
+  <defs>
+    <filter id="sheetShadow" x="-10%" y="-10%" width="120%" height="130%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dy="5" result="blur"/>
+      <feFlood flood-color="#000000" flood-opacity="0.22"/>
+      <feComposite in2="blur" operator="in"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="16" y="14" width="224" height="224" rx="52" fill="#ffffff" filter="url(#sheetShadow)"/>
+  <path d="M56 98 C 100 90, 150 82, 202 78 C 212 77, 216 84, 214 92 C 212 100, 206 104, 198 105 C 150 108, 104 110, 60 108 C 52 107, 50 99, 56 98 Z" fill="#161616"/>
+  <path d="M124 102 L158 102 L145 198 Q144 208 134 208 L120 208 Q110 208 111 198 Z" fill="#161616"/>
+  <g transform="translate(190 188) rotate(-83)" fill="none" stroke="#161616" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 0 L0 -30 L9 -30 C 19 -30, 19 -15, 9 -15 L0 -15 M7 -15 L17 0"/>
+    <path d="M26 0 L26 -30 L37 -12 L48 -30 L48 0"/>
+  </g>
+</svg>

@@ -1,0 +1,24 @@
+private-firmware/
+*.tar
+*.tar.gz
+*.zip
+*.rmdoc
+*.pdf
+*.epub
+credentials*
+tokens*
+.analysis-deps/
+.analysis-cache/
+__pycache__/
+target/
+
+# Local archives, document downloads and machine-only secrets.
+/remarkable-copy.*/
+.env
+.env.*
+*.pem
+*.key
+rmapi.conf
+
+# This generated, nonprivate PDF is a source-controlled smoke-test fixture.
+!/turborm-core/examples/transfer-test.pdf

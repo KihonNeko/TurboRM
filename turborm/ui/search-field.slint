@@ -1,0 +1,57 @@
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+
+// Bordered search box, accent border on focus, matching .subject-search.
+export component SearchField inherits Rectangle {
+    in-out property <string> text <=> input.text;
+    in property <string> placeholder-text: "Search";
+    callback edited(string);
+
+    min-height: 34px;
+    max-height: 34px;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.accent : Theme.rule;
+    border-radius: Theme.radius;
+    forward-focus: input;
+    accessible-role: text-input;
+    accessible-label: root.placeholder-text;
+    accessible-value <=> input.text;
+
+    Icon {
+        name: "search";
+        x: 10px;
+        y: (parent.height - self.height) / 2;
+        width: 15px;
+        height: 15px;
+        stroke: input.has-focus ? Theme.accent : Theme.muted;
+        stroke-width: 1.6px;
+    }
+    Text {
+        x: 32px;
+        y: 0px;
+        width: parent.width - 42px;
+        height: parent.height;
+        text: root.text == "" ? root.placeholder-text : "";
+        color: Theme.muted;
+        font-size: Theme.text-small;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    input := TextInput {
+        x: 32px;
+        y: 1px;
+        width: parent.width - 42px;
+        height: parent.height - 2px;
+        color: Theme.ink;
+        font-size: Theme.text-small;
+        vertical-alignment: center;
+        single-line: true;
+        selection-background-color: Theme.accent;
+        selection-foreground-color: Theme.accent-ink;
+        edited => {
+            root.edited(self.text);
+        }
+    }
+}

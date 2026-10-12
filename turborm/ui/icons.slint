@@ -1,0 +1,113 @@
+import { Theme } from "theme.slint";
+
+// Line icons on a 24x24 grid, matching the reference site's stroked SVG set.
+// A single component keeps stroke width and colour consistent everywhere.
+export component Icon inherits Rectangle {
+    in property <string> name;
+    in property <color> stroke: Theme.muted;
+    in property <length> stroke-width: 1.5px;
+    background: transparent;
+
+    // Scale the nominal 1.5px stroke with the icon box so small icons stay crisp.
+    property <float> unit: min(self.width, self.height) / 24px;
+
+    Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        stroke: root.stroke;
+        stroke-width: root.stroke-width / max(root.unit, 0.01);
+        fill: transparent;
+        commands: root.name == "library"
+            ? "M 4 5 L 4 19 M 4 5 L 9 5 L 9 19 L 4 19 M 11 5 L 16 5 L 16 19 L 11 19 Z M 18 6 L 21 18"
+            : root.name == "pin"
+            ? "M 12 3.5 L 14.4 9 L 20.5 9.6 L 15.9 13.7 L 17.3 19.7 L 12 16.5 L 6.7 19.7 L 8.1 13.7 L 3.5 9.6 L 9.6 9 Z"
+            : root.name == "folder"
+            ? "M 3 6 L 9.5 6 L 11 8.5 L 21 8.5 L 21 19 L 3 19 Z"
+            : root.name == "folder-plus"
+            ? "M 3 6 L 9.5 6 L 11 8.5 L 21 8.5 L 21 19 L 3 19 Z M 12 11 L 12 16.5 M 9.25 13.75 L 14.75 13.75"
+            : root.name == "doc"
+            ? "M 6 3 L 14 3 L 19 8 L 19 21 L 6 21 Z M 14 3 L 14 8 L 19 8 M 9 12 L 16 12 M 9 16 L 14 16"
+            : root.name == "search"
+            ? "M 17 10.5 A 6.5 6.5 0 1 1 4 10.5 A 6.5 6.5 0 1 1 17 10.5 Z M 15.6 15.6 L 20.5 20.5"
+            : root.name == "refresh"
+            ? "M 20 5 L 20 10.5 L 14.5 10.5 M 4 19 L 4 13.5 L 9.5 13.5 M 18.6 10.4 A 7.6 7.6 0 0 0 5.3 8 M 5.4 13.6 A 7.6 7.6 0 0 0 18.7 16"
+            : root.name == "import"
+            ? "M 12 3.5 L 12 14.5 M 7.5 10 L 12 14.5 L 16.5 10 M 4 17.5 L 4 20.5 L 20 20.5 L 20 17.5"
+            : root.name == "list"
+            ? "M 4 6.5 L 20 6.5 M 4 12 L 20 12 M 4 17.5 L 20 17.5"
+            : root.name == "grid"
+            ? "M 4 4.5 L 10 4.5 L 10 10.5 L 4 10.5 Z M 14 4.5 L 20 4.5 L 20 10.5 L 14 10.5 Z M 4 13.5 L 10 13.5 L 10 19.5 L 4 19.5 Z M 14 13.5 L 20 13.5 L 20 19.5 L 14 19.5 Z"
+            : root.name == "chevron"
+            ? "M 9.5 5.5 L 16 12 L 9.5 18.5"
+            : root.name == "chevron-down"
+            ? "M 5.5 9.5 L 12 16 L 18.5 9.5"
+            : root.name == "back"
+            ? "M 14.5 5.5 L 8 12 L 14.5 18.5"
+            : root.name == "sun"
+            ? "M 16 12 A 4 4 0 1 1 8 12 A 4 4 0 1 1 16 12 Z M 12 2.5 L 12 4.5 M 12 19.5 L 12 21.5 M 2.5 12 L 4.5 12 M 19.5 12 L 21.5 12 M 5.3 5.3 L 6.7 6.7 M 17.3 17.3 L 18.7 18.7 M 18.7 5.3 L 17.3 6.7 M 6.7 17.3 L 5.3 18.7"
+            : root.name == "moon"
+            ? "M 20.7 13.1 A 9 9 0 0 1 10.9 3.3 A 9 9 0 1 0 20.7 13.1 Z"
+            : root.name == "warn"
+            ? "M 12 3.5 L 21.5 20 L 2.5 20 Z M 12 9.5 L 12 14 M 12 16.6 L 12 17"
+            : root.name == "link"
+            ? "M 10 13.5 A 4.5 4.5 0 0 0 16.4 13.5 L 19.2 10.7 A 4.5 4.5 0 0 0 12.8 4.3 L 11.4 5.7 M 14 10.5 A 4.5 4.5 0 0 0 7.6 10.5 L 4.8 13.3 A 4.5 4.5 0 0 0 11.2 19.7 L 12.6 18.3"
+            // Settings: two sliders on their tracks.
+            : root.name == "settings"
+            ? "M 4 7.5 L 6 7.5 M 11 7.5 L 20 7.5 M 4 16.5 L 13 16.5 M 18 16.5 L 20 16.5 M 11 7.5 A 2.5 2.5 0 1 1 6 7.5 A 2.5 2.5 0 1 1 11 7.5 Z M 18 16.5 A 2.5 2.5 0 1 1 13 16.5 A 2.5 2.5 0 1 1 18 16.5 Z"
+            // "My files" in the reference is a tray/drawer glyph, not a folder.
+            : root.name == "tray"
+            ? "M 3.5 5.5 L 20.5 5.5 L 20.5 18.5 L 3.5 18.5 Z M 3.5 12 L 20.5 12 M 7 15.4 L 13 15.4"
+            // Filter glyphs: a ruled notebook, a PDF sheet, a two-page ebook.
+            : root.name == "notebook"
+            ? "M 8 3.5 L 19 3.5 L 19 20.5 L 8 20.5 Z M 5 6.5 L 8 6.5 M 5 12 L 8 12 M 5 17.5 L 8 17.5 M 11.5 8.5 L 15.5 8.5 M 11.5 12.5 L 15.5 12.5"
+            : root.name == "pdf"
+            ? "M 6 3.5 L 14 3.5 L 18 7.5 L 18 20.5 L 6 20.5 Z M 14 3.5 L 14 7.5 L 18 7.5"
+            : root.name == "ebook"
+            ? "M 4 4.5 L 20 4.5 L 20 19.5 L 4 19.5 Z M 12 4.5 L 12 19.5"
+            : root.name == "star-outline"
+            ? "M 12 3.5 L 14.4 9 L 20.5 9.6 L 15.9 13.7 L 17.3 19.7 L 12 16.5 L 6.7 19.7 L 8.1 13.7 L 3.5 9.6 L 9.6 9 Z"
+            // Toolbar glyphs: open, move, export, verify.
+            : root.name == "open"
+            ? "M 13 4.5 L 19.5 4.5 L 19.5 11 M 19.5 4.5 L 11.5 12.5 M 16 14 L 16 19.5 L 4.5 19.5 L 4.5 8 L 10 8"
+            : root.name == "move"
+            ? "M 3.5 6.5 L 9 6.5 L 10.5 9 L 20.5 9 L 20.5 18 L 3.5 18 Z M 13 13.5 L 18 13.5 M 16 11.5 L 18 13.5 L 16 15.5"
+            : root.name == "export"
+            ? "M 12 16.5 L 12 4.5 M 7.5 9 L 12 4.5 L 16.5 9 M 4 17.5 L 4 20.5 L 20 20.5 L 20 17.5"
+            : root.name == "verify"
+            ? "M 12 3 L 20 6 L 20 12 A 9.5 9.5 0 0 1 12 21 A 9.5 9.5 0 0 1 4 12 L 4 6 Z M 8.5 12 L 11 14.5 L 15.5 9.5"
+            : root.name == "close"
+            ? "M 6.5 6.5 L 17.5 17.5 M 17.5 6.5 L 6.5 17.5"
+            : "";
+    }
+
+    // The star renders filled so pinned rows read at a glance.
+    if root.name == "star": Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: root.stroke;
+        commands: "M 12 3.5 L 14.4 9 L 20.5 9.6 L 15.9 13.7 L 17.3 19.7 L 12 16.5 L 6.7 19.7 L 8.1 13.7 L 3.5 9.6 L 9.6 9 Z";
+    }
+
+    // A folder that holds something: the folder outline, filled solid.
+    if root.name == "folder-filled": Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        stroke: root.stroke;
+        stroke-width: root.stroke-width / max(root.unit, 0.01);
+        fill: root.stroke;
+        commands: "M 3 6 L 9.5 6 L 11 8.5 L 21 8.5 L 21 19 L 3 19 Z";
+    }
+
+    if root.name == "dot": Rectangle {
+        width: min(parent.width, parent.height);
+        height: self.width;
+        border-radius: self.width / 2;
+        background: root.stroke;
+    }
+}

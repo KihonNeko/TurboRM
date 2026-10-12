@@ -1,0 +1,107 @@
+import { ListView } from "std-widgets.slint";
+import { LibraryRow } from "types.slint";
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+import { DragSource, FolderDrop } from "drag.slint";
+
+// Folders above the documents, as filled tiles as wide as their names. Rust
+// measures each name and fills each row with as many tiles as it holds.
+export component FolderStrip inherits Rectangle {
+    in property <[LibraryRow]> rows;
+    callback select-entry(string);
+    callback navigate(string);
+    callback context-menu(string, length, length);
+
+    // Four rows of tiles at most; beyond that the grid scrolls on its own.
+    height: rows.length == 0 ? 0px : min(4 * 52px + 8px, rows.length * 52px + 8px);
+    vertical-stretch: 0;
+    background: transparent;
+
+    ListView {
+        width: parent.width;
+        height: parent.height;
+        for row in root.rows: HorizontalLayout {
+            height: 52px;
+            spacing: 10px;
+            for folder in row.items: Rectangle {
+                height: 44px;
+                y: 4px;
+                width: folder.tile-width;
+                border-radius: 4px;
+                background: Theme.surface-2;
+                border-width: folder.selected || tile-drop.has-drag ? 2px : 1px;
+                border-color: tile-drop.has-drag
+                    ? Theme.accent
+                    : folder.selected
+                    ? Theme.ink
+                    : (tile-touch.has-hover ? Theme.rule-strong : Theme.rule);
+                accessible-role: list-item;
+                accessible-label: folder.title;
+                accessible-item-selected: folder.selected;
+                Icon {
+                    x: 12px;
+                    y: (parent.height - self.height) / 2;
+                    width: 17px;
+                    height: 17px;
+                    name: folder.has-content ? "folder-filled" : "folder";
+                    stroke: folder.has-content ? Theme.ink : Theme.ink-2;
+                    stroke-width: 1.4px;
+                }
+                Text {
+                    x: 37px;
+                    y: 0px;
+                    width: parent.width - (folder.pinned ? 60px : 47px);
+                    height: parent.height;
+                    text: folder.title;
+                    color: Theme.ink;
+                    font-size: Theme.text-body;
+                    font-weight: 500;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    accessible-role: none;
+                }
+                if folder.pinned: Icon {
+                    x: parent.width - 23px;
+                    y: (parent.height - self.height) / 2;
+                    width: 12px;
+                    height: 12px;
+                    name: "star";
+                    stroke: Theme.ink;
+                }
+                tile-drop := FolderDrop {
+                    folder-id: folder.entry-id;
+                    folder-title: folder.title;
+                    open-folder(id) => {
+                        root.navigate(id);
+                    }
+                    DragSource {
+                        entry-id: folder.entry-id;
+                        title: folder.title;
+                        is-folder: true;
+                        tile-touch := TouchArea {
+                            pointer-event(event) => {
+                                if (event.button == PointerEventButton.right
+                                    && event.kind == PointerEventKind.down) {
+                                    root.context-menu(
+                                        folder.entry-id,
+                                        self.absolute-position.x + self.mouse-x,
+                                        self.absolute-position.y + self.mouse-y);
+                                }
+                            }
+                            clicked => {
+                                root.select-entry(folder.entry-id);
+                            }
+                            double-clicked => {
+                                root.navigate(folder.entry-id);
+                            }
+                        }
+                    }
+                }
+            }
+            // Keeps every row left-aligned; the tiles never stretch.
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+        }
+    }
+}

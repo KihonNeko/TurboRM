@@ -1,0 +1,12 @@
+# Root workspace: both crates share one target directory so dependencies are
+# compiled once. Run `cargo clean` here to reclaim build cache space.
+[workspace]
+members = ["turborm-core", "turborm"]
+resolver = "2"
+
+[profile.dev]
+debug = 0
+
+[profile.release]
+lto = "thin"
+strip = true

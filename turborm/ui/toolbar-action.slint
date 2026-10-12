@@ -1,0 +1,114 @@
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+
+// Toolbar action in the reference's shape: a 20px glyph with an 11px muted
+// label under it. Disabled actions dim rather than disappear, so the toolbar
+// keeps a stable width while the selection changes.
+export component ToolbarAction inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <bool> enabled: true;
+    callback clicked();
+
+    property <length> label-width: measure.preferred-width;
+    min-width: max(58px, root.label-width + 16px);
+    preferred-width: self.min-width;
+    horizontal-stretch: 0;
+    min-height: 48px;
+    max-height: 48px;
+    border-radius: 4px;
+    background: root.enabled && (input.has-hover || focus.has-focus)
+        ? Theme.surface-2
+        : transparent;
+    opacity: root.enabled ? 1.0 : 0.45;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
+    forward-focus: focus;
+
+    VerticalLayout {
+        padding-top: 5px;
+        padding-bottom: 5px;
+        spacing: 5px;
+        alignment: center;
+        Icon {
+            name: root.icon;
+            width: 21px;
+            height: 21px;
+            x: (parent.width - self.width) / 2;
+            stroke: root.enabled && input.has-hover ? Theme.ink : Theme.ink-2;
+            stroke-width: 1.5px;
+        }
+        Text {
+            text: root.label;
+            color: root.enabled && input.has-hover ? Theme.ink : Theme.muted;
+            font-size: Theme.text-small;
+            horizontal-alignment: center;
+            overflow: elide;
+            accessible-role: none;
+        }
+    }
+    measure := Text {
+        visible: false;
+        text: root.label;
+        font-size: Theme.text-small;
+        accessible-role: none;
+    }
+    input := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+            focus.focus();
+        }
+    }
+    focus := FocusScope {
+        width: 0px;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (event.text == Key.Space || event.text == Key.Return) {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+// One row of a popup menu. Disabled rows stay visible and greyed, as in the
+// reference's context menu.
+export component MenuItem inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    callback clicked();
+
+    height: 30px;
+    background: root.enabled && touch.has-hover ? Theme.surface-2 : transparent;
+    opacity: root.enabled ? 1.0 : 0.42;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+
+    Text {
+        x: 14px;
+        y: 0px;
+        width: parent.width - 24px;
+        height: parent.height;
+        text: root.text;
+        color: Theme.ink;
+        font-size: Theme.text-body;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+        }
+    }
+}

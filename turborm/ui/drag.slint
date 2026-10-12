@@ -1,0 +1,185 @@
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+
+// Moving entries by dragging them, as in a file manager. Slint carries the
+// drag; this global remembers what is dragged, where the pointer is, and asks
+// Rust whether a folder takes it. Rust owns every rule.
+export global DragState {
+    // Any non-empty payload; Rust sets it once. The entry itself is tracked
+    // here, so a drag survives its source tile going away when a folder
+    // opens underneath it.
+    in property <data-transfer> token;
+    // Off in demo mode, while unpaired and while an operation runs.
+    in property <bool> enabled;
+    out property <bool> active;
+    out property <string> entry-id;
+    out property <string> title;
+    out property <bool> is-folder;
+    // The pointer in window coordinates, for the label that follows it.
+    out property <length> x;
+    out property <length> y;
+    // Where a drop would move the entry now, or "" when nowhere.
+    out property <string> target-title;
+
+    // The folder ("." for the one being browsed, "" for the root) that
+    // dropping `entry` on `folder` moves it into, or false when none.
+    callback accepts(entry: string, folder: string) -> bool;
+    callback move-into(entry: string, folder: string);
+
+    public function begin(id: string, title: string, is-folder: bool) {
+        self.entry-id = id;
+        self.title = title;
+        self.is-folder = is-folder;
+        self.target-title = "";
+        self.active = true;
+    }
+
+    public function finish() {
+        self.active = false;
+        self.entry-id = "";
+        self.target-title = "";
+    }
+
+    public function track(x: length, y: length) {
+        self.x = x;
+        self.y = y;
+    }
+
+    // Called on every pointer move over a folder target.
+    public function offer(folder: string, title: string) -> bool {
+        if (self.active && self.accepts(self.entry-id, folder)) {
+            self.target-title = title;
+            return true;
+        }
+        return false;
+    }
+
+    public function leave() {
+        self.target-title = "";
+    }
+
+    public function drop(folder: string) {
+        if (self.active) {
+            self.move-into(self.entry-id, folder);
+        }
+        self.finish();
+    }
+}
+
+// Wraps a tile, card or row so it can be picked up. Put the entry's own
+// TouchArea inside: clicks, double-clicks and right-clicks still reach it,
+// and only a press that moves past a few pixels becomes a drag.
+export component DragSource inherits DragArea {
+    in property <string> entry-id;
+    in property <string> title;
+    in property <bool> is-folder;
+
+    data: DragState.token;
+    allow-move: true;
+    enabled: DragState.enabled;
+
+    changed dragging => {
+        if (self.dragging) {
+            DragState.begin(root.entry-id, root.title, root.is-folder);
+        }
+    }
+    drag-finished(action) => {
+        DragState.finish();
+    }
+}
+
+// A place an entry can be dropped: a folder tile or row, a breadcrumb, or the
+// background of the folder being browsed ("."). Holding a drag over a folder
+// opens it, as file managers do.
+export component FolderDrop inherits DropArea {
+    in property <string> folder-id;
+    in property <string> folder-title;
+    // Open the folder after the pointer rests on it.
+    in property <bool> spring-open: true;
+    callback open-folder(string);
+
+    can-drop(event) => {
+        DragState.track(
+            self.absolute-position.x + event.position.x,
+            self.absolute-position.y + event.position.y);
+        if (DragState.offer(root.folder-id, root.folder-title)) {
+            return event.proposed-action;
+        }
+        return DragAction.none;
+    }
+    dropped(event) => {
+        DragState.drop(root.folder-id);
+        return event.proposed-action;
+    }
+    Timer {
+        interval: 800ms;
+        running: root.spring-open && root.has-drag;
+        triggered => {
+            root.open-folder(root.folder-id);
+        }
+    }
+}
+
+// The whole library screen under every other target. It sees the pointer
+// only where no folder takes the drag, so it clears the "Move to" line, and
+// it catches a drop that lands nowhere, so the label never stays up when the
+// tile that started the drag has gone.
+export component DragCatcher inherits DropArea {
+    can-drop(event) => {
+        DragState.track(
+            self.absolute-position.x + event.position.x,
+            self.absolute-position.y + event.position.y);
+        DragState.leave();
+        return DragState.active ? event.proposed-action : DragAction.none;
+    }
+    dropped(event) => {
+        DragState.finish();
+        return DragAction.none;
+    }
+}
+
+// The label that follows the pointer: what is moving and where it would go.
+export component DragLabel inherits Rectangle {
+    visible: DragState.active;
+    width: min(320px, max(name.preferred-width, where.preferred-width) + 46px);
+    height: DragState.target-title != "" ? 50px : 32px;
+    border-radius: 6px;
+    background: Theme.ink;
+    opacity: 0.94;
+    accessible-role: none;
+
+    Icon {
+        x: 10px;
+        y: 8px;
+        width: 16px;
+        height: 16px;
+        name: DragState.is-folder ? "folder-filled" : "doc";
+        stroke: Theme.bg;
+        stroke-width: 1.4px;
+    }
+    name := Text {
+        x: 34px;
+        y: 0px;
+        width: parent.width - 44px;
+        height: 32px;
+        text: DragState.title;
+        color: Theme.bg;
+        font-size: Theme.text-body;
+        font-weight: 500;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    where := Text {
+        visible: DragState.target-title != "";
+        x: 34px;
+        y: 26px;
+        width: parent.width - 44px;
+        height: 16px;
+        text: "Move to " + DragState.target-title;
+        color: Theme.bg;
+        opacity: 0.75;
+        font-size: Theme.text-small;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+}

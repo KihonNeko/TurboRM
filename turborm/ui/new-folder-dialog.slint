@@ -1,0 +1,186 @@
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+import { FlatAction, PrimaryAction } from "flat-action.slint";
+
+// "New folder": a centred modal card over a dimmed overlay, in the same
+// language as the move dialog. Rust owns the name and the validation message;
+// this component only presents them and reports edits.
+export component NewFolderDialog inherits Rectangle {
+    // The name when the dialog opens. Typing is reported through `edited`.
+    in property <string> name;
+    // Inline validation message, shown in the ko colour. Empty when valid.
+    in property <string> error;
+    // Where the folder will be created, e.g. "My files" or a folder title.
+    in property <string> location;
+    callback edited(string);
+    callback create();
+    callback cancelled();
+    background: Theme.overlay;
+
+    // Consume backdrop clicks instead of activating the library underneath.
+    TouchArea { }
+
+    // A soft drop shadow, offset behind the card.
+    Rectangle {
+        width: card.width;
+        height: card.height;
+        x: card.x;
+        y: card.y + 3px;
+        background: Theme.shadow;
+        border-radius: 8px;
+    }
+
+    keys := FocusScope {
+        // Escape reaches here from the text field, which does not use it.
+        key-pressed(event) => {
+            if (event.text == Key.Escape) {
+                root.cancelled();
+                return accept;
+            }
+            return reject;
+        }
+
+        card := Rectangle {
+            width: min(420px, root.width - 48px);
+            height: body.preferred-height;
+            x: (root.width - self.width) / 2;
+            y: (root.height - self.height) / 2;
+            background: Theme.surface;
+            border-radius: 8px;
+            border-color: Theme.rule;
+            border-width: 1px;
+            clip: true;
+            accessible-role: groupbox;
+            accessible-label: "New folder";
+
+            body := VerticalLayout {
+                padding: 20px;
+                spacing: 0px;
+
+                Text {
+                    text: "New folder";
+                    font-size: 17px;
+                    font-weight: 600;
+                    letter-spacing: -0.4px;
+                    color: Theme.ink;
+                }
+                Rectangle { height: 6px; }
+                HorizontalLayout {
+                    spacing: 6px;
+                    alignment: start;
+                    Icon {
+                        y: (parent.height - self.height) / 2;
+                        width: 14px;
+                        height: 14px;
+                        name: "folder";
+                        stroke: Theme.muted;
+                    }
+                    Text {
+                        text: "In " + root.location;
+                        color: Theme.muted;
+                        font-size: Theme.text-small;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                }
+                Rectangle { height: 16px; }
+
+                field := Rectangle {
+                    height: 36px;
+                    background: Theme.surface;
+                    border-width: 1px;
+                    border-color: root.error != ""
+                        ? Theme.ko
+                        : (input.has-focus ? Theme.accent : Theme.rule);
+                    border-radius: Theme.radius;
+                    forward-focus: input;
+                    accessible-role: text-input;
+                    accessible-label: "Folder name";
+                    accessible-value: input.text;
+                    // Assistive technology (and the headless tests) type
+                    // through here; report it exactly like a keystroke.
+                    accessible-action-set-value(value) => {
+                        input.text = value;
+                        root.edited(value);
+                    }
+
+                    Text {
+                        x: 11px;
+                        y: 0px;
+                        width: parent.width - 22px;
+                        height: parent.height;
+                        text: input.text == "" ? "Folder name" : "";
+                        color: Theme.muted;
+                        font-size: Theme.text-body;
+                        vertical-alignment: center;
+                        overflow: elide;
+                        accessible-role: none;
+                    }
+                    input := TextInput {
+                        x: 11px;
+                        y: 1px;
+                        width: parent.width - 22px;
+                        height: parent.height - 2px;
+                        text: root.name;
+                        color: Theme.ink;
+                        font-size: Theme.text-body;
+                        vertical-alignment: center;
+                        single-line: true;
+                        selection-background-color: Theme.accent;
+                        selection-foreground-color: Theme.accent-ink;
+                        edited => {
+                            root.edited(self.text);
+                        }
+                        accepted => {
+                            root.create();
+                        }
+                    }
+                }
+
+                // Space for one line of message is always kept, so the card
+                // does not jump while the name is typed.
+                Rectangle {
+                    height: 26px;
+                    Text {
+                        x: 1px;
+                        y: 6px;
+                        width: parent.width - 2px;
+                        text: root.error;
+                        color: Theme.ko;
+                        font-size: Theme.text-small;
+                        overflow: elide;
+                    }
+                }
+                Rectangle { height: 8px; }
+
+                HorizontalLayout {
+                    height: 36px;
+                    spacing: 8px;
+                    alignment: end;
+                    VerticalLayout {
+                        alignment: center;
+                        FlatAction {
+                            text: "Cancel";
+                            clicked => {
+                                root.cancelled();
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        PrimaryAction {
+                            text: "Create";
+                            clicked => {
+                                root.create();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    init => {
+        input.focus();
+    }
+}

@@ -1,0 +1,596 @@
+import { ViewerTile } from "types.slint";
+import { Theme } from "theme.slint";
+import { Icon } from "icons.slint";
+import { IconButton } from "icon-button.slint";
+import { FlatAction } from "flat-action.slint";
+import { StatusBar } from "status-bar.slint";
+
+// One segment of the zoom group: flat until active, then a surface chip.
+component SegmentButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> active;
+    in property <bool> enabled: true;
+    callback clicked();
+
+    min-width: label.preferred-width + 20px;
+    preferred-width: self.min-width;
+    horizontal-stretch: 0;
+    min-height: 26px;
+    max-height: 26px;
+    border-radius: 4px;
+    background: root.active
+        ? Theme.surface
+        : (root.enabled && touch.has-hover ? Theme.rule : transparent);
+    border-width: root.active ? 1px : 0px;
+    border-color: Theme.rule-strong;
+    opacity: root.enabled ? 1.0 : 0.45;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-checked: root.active;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if (root.enabled) {
+            root.clicked();
+        }
+    }
+
+    label := Text {
+        x: 10px;
+        y: 0px;
+        width: parent.width - 20px;
+        height: parent.height;
+        text: root.text;
+        color: root.active ? Theme.ink : Theme.ink-2;
+        font-size: 12px;
+        font-weight: root.active ? 600 : 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component ViewerScreen inherits Rectangle {
+    in property <string> document-title: "Opening document…";
+    in property <string> status-text;
+    in property <string> error-text;
+    in property <bool> busy;
+    in property <bool> demo-mode;
+    in property <bool> has-document;
+    in property <int> page: 0;
+    in property <int> total: 0;
+    in property <string> page-field: "1";
+    // "width", "page" or "custom"; Rust owns the active mode.
+    in property <string> fit-mode: "width";
+    in property <int> zoom-percent: 100;
+    in property <bool> can-export;
+    // Content problems: something on this page could not be rendered
+    // faithfully. These are counted in the strip's badge.
+    in property <[string]> warnings;
+    // Approximations and standing facts. Listed, never counted.
+    in property <[string]> notes;
+    // Page geometry in logical pixels, already scaled by Rust.
+    in property <length> page-width: 0px;
+    in property <length> page-height: 0px;
+    in property <image> overview;
+    in property <bool> overview-ready;
+    // The painted image belongs to the previous page (or is the library
+    // cover): dim it so the page being prepared is not mistaken for ready.
+    in property <bool> stale;
+    in property <[ViewerTile]> tiles;
+
+    callback back();
+    callback go-page(int);
+    callback page-field-edited(string);
+
+    // Typing into the page box replaces its text binding with the typed value,
+    // so every later page or document change is pushed back into it here.
+    changed page-field => {
+        page-input.text = root.page-field;
+    }
+    callback set-fit(string);
+    callback zoom-by(int);
+    callback set-zoom(int);
+    callback export-pdf();
+    callback export-svg();
+    callback export-svg-pages();
+    // Viewport size and scroll offset in logical pixels; Rust picks the tiles.
+    callback viewport-changed(length, length, length, length);
+
+    background: Theme.bg-deep;
+
+    property <bool> notes-open: false;
+    // Breathing room around the sheet, matching the library gutters.
+    property <length> canvas-margin: 28px;
+    property <length> sheet-width: max(root.page-width, 1px);
+    property <length> sheet-height: max(root.page-height, 1px);
+
+    public function focus-canvas() {
+        keys.focus();
+    }
+
+    function step-page(delta: int) {
+        if (root.total > 0) {
+            root.go-page(root.page + delta);
+        }
+    }
+
+    VerticalLayout {
+        spacing: 0px;
+
+        // 57px top bar, matching the library's bar height and gutters.
+        Rectangle {
+            height: 57px;
+            background: Theme.bg;
+            vertical-stretch: 0;
+
+            Rectangle {
+                y: parent.height - 1px;
+                width: parent.width;
+                height: 1px;
+                background: Theme.rule;
+            }
+
+            HorizontalLayout {
+                height: parent.height;
+                padding-left: 28px;
+                padding-right: 28px;
+                padding-top: 11px;
+                padding-bottom: 12px;
+                spacing: 14px;
+
+                IconButton {
+                    icon: "back";
+                    label: "Library";
+                    clicked => {
+                        root.back();
+                    }
+                }
+
+                Text {
+                    text: root.document-title;
+                    color: Theme.ink;
+                    font-size: 15px;
+                    font-weight: 600;
+                    letter-spacing: -0.3px;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    // Long titles elide, but a short one keeps its full width.
+                    min-width: min(self.preferred-width, 260px);
+                    overflow: elide;
+                }
+
+                // Keeps the title from crowding the page cluster on a long name.
+                Rectangle {
+                    width: 8px;
+                    horizontal-stretch: 0;
+                }
+
+                // Page cluster: chevrons around an editable field and "of N".
+                HorizontalLayout {
+                    horizontal-stretch: 0;
+                    spacing: 2px;
+                    alignment: center;
+                    IconButton {
+                        icon: "back";
+                        label: "";
+                        enabled: !root.busy && root.page > 0;
+                        clicked => {
+                            root.step-page(-1);
+                        }
+                    }
+                    Rectangle {
+                        width: 46px;
+                        height: 26px;
+                        y: (parent.height - self.height) / 2;
+                        background: Theme.surface;
+                        border-width: 1px;
+                        border-color: page-input.has-focus ? Theme.accent : Theme.rule;
+                        border-radius: 4px;
+                        accessible-role: text-input;
+                        accessible-label: "Page number";
+                        accessible-value <=> page-input.text;
+                        accessible-action-set-value(value) => {
+                            page-input.text = value;
+                        }
+                        page-input := TextInput {
+                            x: 4px;
+                            y: 0px;
+                            width: parent.width - 8px;
+                            height: parent.height;
+                            text: root.page-field;
+                            color: Theme.ink;
+                            font-size: 12px;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            single-line: true;
+                            input-type: number;
+                            enabled: root.total > 0 && !root.busy;
+                            selection-background-color: Theme.accent;
+                            selection-foreground-color: Theme.accent-ink;
+                            accepted => {
+                                root.page-field-edited(self.text);
+                                // Rust has settled the page by now; show it even
+                                // when the typed value was invalid or unchanged.
+                                self.text = root.page-field;
+                            }
+                            // Leaving the box without pressing Enter discards
+                            // the unsubmitted value.
+                            changed has-focus => {
+                                if !self.has-focus {
+                                    self.text = root.page-field;
+                                }
+                            }
+                        }
+                    }
+                    Text {
+                        text: "of " + root.total;
+                        color: Theme.muted;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                        width: 38px;
+                        horizontal-alignment: center;
+                    }
+                    IconButton {
+                        icon: "chevron";
+                        label: "";
+                        enabled: !root.busy && root.page + 1 < root.total;
+                        clicked => {
+                            root.step-page(1);
+                        }
+                    }
+                }
+
+                // Zoom group: one recessed strip holding the fit segments,
+                // the percent readout and the step buttons.
+                Rectangle {
+                    horizontal-stretch: 0;
+                    height: 34px;
+                    y: (parent.height - self.height) / 2;
+                    width: zoom-row.preferred-width;
+                    background: Theme.bg-deep;
+                    border-radius: Theme.radius;
+                    border-width: 1px;
+                    border-color: Theme.rule;
+
+                    zoom-row := HorizontalLayout {
+                        height: parent.height;
+                        padding-left: 3px;
+                        padding-right: 3px;
+                        padding-top: 3px;
+                        padding-bottom: 3px;
+                        spacing: 2px;
+                        SegmentButton {
+                            text: "Fit width";
+                            active: root.fit-mode == "width";
+                            clicked => {
+                                root.set-fit("width");
+                            }
+                        }
+                        SegmentButton {
+                            text: "Fit page";
+                            active: root.fit-mode == "page";
+                            clicked => {
+                                root.set-fit("page");
+                            }
+                        }
+                        SegmentButton {
+                            text: "100%";
+                            active: root.fit-mode == "custom" && root.zoom-percent == 100;
+                            clicked => {
+                                root.set-zoom(100);
+                            }
+                        }
+                        Rectangle {
+                            width: 1px;
+                            height: parent.height - 12px;
+                            y: 6px;
+                            background: Theme.rule;
+                        }
+                        SegmentButton {
+                            text: "−";
+                            enabled: root.zoom-percent > 25;
+                            clicked => {
+                                root.zoom-by(-1);
+                            }
+                        }
+                        Text {
+                            text: root.zoom-percent + "%";
+                            color: Theme.ink-2;
+                            font-size: 12px;
+                            font-weight: 500;
+                            width: 42px;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        SegmentButton {
+                            text: "+";
+                            enabled: root.zoom-percent < 300;
+                            clicked => {
+                                root.zoom-by(1);
+                            }
+                        }
+                    }
+                }
+
+                FlatAction {
+                    text: "Export preview PDF";
+                    // Export advice belongs on the export control, not in the
+                    // per-page rendering notes.
+                    description: "The preview PDF is rasterized. Use Original or Native export when fidelity matters.";
+                    enabled: root.can-export && !root.busy;
+                    clicked => {
+                        root.export-pdf();
+                    }
+                }
+                FlatAction {
+                    text: "Export page SVG";
+                    enabled: root.can-export && !root.busy;
+                    clicked => {
+                        root.export-svg();
+                    }
+                }
+                FlatAction {
+                    text: "All pages SVG";
+                    description: "Saves every page as page1.svg, page2.svg… in a new folder";
+                    enabled: root.can-export && !root.busy;
+                    clicked => {
+                        root.export-svg-pages();
+                    }
+                }
+            }
+        }
+
+        // Rendering notes strip, present when the page reported anything.
+        if root.warnings.length > 0 || root.notes.length > 0: Rectangle {
+            vertical-stretch: 0;
+            height: notes.preferred-height;
+            background: Theme.bg;
+
+            Rectangle {
+                y: parent.height - 1px;
+                width: parent.width;
+                height: 1px;
+                background: Theme.rule;
+            }
+
+            notes := VerticalLayout {
+                padding-left: 28px;
+                padding-right: 28px;
+                padding-top: 0px;
+                padding-bottom: root.notes-open ? 12px : 0px;
+                spacing: 6px;
+
+                Rectangle {
+                    height: 34px;
+                    accessible-role: button;
+                    accessible-label: "Rendering notes";
+                    accessible-expanded: root.notes-open;
+                    accessible-action-default => {
+                        root.notes-open = !root.notes-open;
+                    }
+                    HorizontalLayout {
+                        height: parent.height;
+                        spacing: 7px;
+                        alignment: start;
+                        Icon {
+                            name: root.notes-open ? "chevron-down" : "chevron";
+                            width: 13px;
+                            height: 13px;
+                            y: (parent.height - self.height) / 2;
+                            stroke: Theme.muted;
+                        }
+                        // With no content problem the strip is simply
+                        // "Notes" in the muted colour: nothing needs attention.
+                        Text {
+                            text: root.warnings.length > 0 ? "Rendering notes" : "Notes";
+                            color: Theme.muted;
+                            font-size: Theme.text-small;
+                            vertical-alignment: center;
+                            accessible-role: none;
+                        }
+                        if root.warnings.length > 0: Text {
+                            text: root.warnings.length + (root.warnings.length == 1 ? " warning" : " warnings");
+                            color: Theme.warn;
+                            font-size: Theme.text-small;
+                            font-weight: 600;
+                            vertical-alignment: center;
+                            accessible-role: none;
+                        }
+                    }
+                    notes-touch := TouchArea {
+                        clicked => {
+                            root.notes-open = !root.notes-open;
+                        }
+                    }
+                }
+
+                if root.notes-open: VerticalLayout {
+                    spacing: 5px;
+                    padding-left: 20px;
+                    for warning in root.warnings: Text {
+                        text: warning;
+                        color: Theme.ink-2;
+                        font-size: Theme.text-small;
+                        wrap: word-wrap;
+                    }
+                    // Informational notes sit below their own muted heading so
+                    // they read as context, not as a list of faults.
+                    if root.notes.length > 0 && root.warnings.length > 0: Rectangle {
+                        height: 5px;
+                    }
+                    if root.notes.length > 0: Text {
+                        text: "Notes";
+                        color: Theme.muted;
+                        font-size: Theme.text-micro;
+                        font-weight: 600;
+                        wrap: no-wrap;
+                    }
+                    for note in root.notes: Text {
+                        text: note;
+                        color: Theme.muted;
+                        font-size: Theme.text-small;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+        }
+
+        // Page canvas on the deep background, scrollable in both directions.
+        canvas := Rectangle {
+            vertical-stretch: 1;
+            background: Theme.bg-deep;
+            clip: true;
+
+            property <length> canvas-content-width: max(root.sheet-width + root.canvas-margin * 2, self.width);
+            property <length> canvas-content-height: max(root.sheet-height + root.canvas-margin * 2, self.height);
+
+            if !root.has-document: Text {
+                text: root.busy ? "Opening document…" : "No page loaded";
+                color: Theme.muted;
+                font-size: Theme.text-body;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            if root.has-document: flick := Flickable {
+                width: parent.width;
+                height: parent.height;
+                content-width: canvas.canvas-content-width;
+                content-height: canvas.canvas-content-height;
+                interactive: true;
+
+                changed content-x => {
+                    root.viewport-changed(-self.content-x, -self.content-y, self.width, self.height);
+                }
+                changed content-y => {
+                    root.viewport-changed(-self.content-x, -self.content-y, self.width, self.height);
+                }
+                init => {
+                    root.viewport-changed(0px, 0px, self.width, self.height);
+                }
+                changed width => {
+                    root.viewport-changed(-self.content-x, -self.content-y, self.width, self.height);
+                }
+                changed height => {
+                    root.viewport-changed(-self.content-x, -self.content-y, self.width, self.height);
+                }
+
+                // Soft shadow: a slightly larger block offset behind the sheet.
+                Rectangle {
+                    x: sheet.x - 2px;
+                    y: sheet.y + 2px;
+                    width: sheet.width + 4px;
+                    height: sheet.height + 4px;
+                    background: Theme.shadow;
+                    border-radius: 2px;
+                }
+
+                sheet := Rectangle {
+                    x: max(root.canvas-margin, (canvas.canvas-content-width - root.sheet-width) / 2);
+                    y: max(root.canvas-margin, (canvas.canvas-content-height - root.sheet-height) / 2);
+                    width: root.sheet-width;
+                    height: root.sheet-height;
+                    background: Theme.paper;
+                    border-width: 1px;
+                    border-color: Theme.rule;
+                    clip: true;
+                    accessible-role: image;
+                    accessible-label: root.document-title;
+
+                    // The overview keeps the page readable while tiles arrive,
+                    // and the previous page keeps it readable while the next
+                    // one is prepared.
+                    if root.overview-ready: Image {
+                        x: 0px;
+                        y: 0px;
+                        width: parent.width;
+                        height: parent.height;
+                        source: root.overview;
+                        image-fit: root.stale ? contain : fill;
+                        image-rendering: smooth;
+                        opacity: root.stale ? 0.38 : 1.0;
+                        accessible-role: none;
+                    }
+
+                    for tile in root.tiles: Image {
+                        x: tile.x;
+                        y: tile.y;
+                        width: tile.w;
+                        height: tile.h;
+                        source: tile.image;
+                        image-fit: fill;
+                        image-rendering: smooth;
+                        accessible-role: none;
+                    }
+                }
+            }
+
+            // Keyboard: pages, zoom steps and the fit shortcuts.
+            keys := FocusScope {
+                width: 0px;
+                height: 0px;
+                key-pressed(event) => {
+                    if (event.text == Key.LeftArrow || event.text == Key.PageUp) {
+                        root.step-page(-1);
+                        return accept;
+                    }
+                    if (event.text == Key.RightArrow || event.text == Key.PageDown) {
+                        root.step-page(1);
+                        return accept;
+                    }
+                    if (event.text == "+" || event.text == "=") {
+                        root.zoom-by(1);
+                        return accept;
+                    }
+                    if (event.text == "-" || event.text == "_") {
+                        root.zoom-by(-1);
+                        return accept;
+                    }
+                    if (event.text == "0") {
+                        root.set-fit("page");
+                        return accept;
+                    }
+                    if (event.text == "1") {
+                        root.set-zoom(100);
+                        return accept;
+                    }
+                    return reject;
+                }
+            }
+
+            // Ctrl + wheel zooms; a plain wheel is left to the Flickable.
+            wheel := TouchArea {
+                width: parent.width;
+                height: parent.height;
+                // Clicking the canvas gives the keyboard shortcuts a target.
+                clicked => {
+                    keys.focus();
+                }
+                scroll-event(event) => {
+                    if (event.modifiers.control) {
+                        if (event.delta-y > 0) {
+                            root.zoom-by(1);
+                        } else if (event.delta-y < 0) {
+                            root.zoom-by(-1);
+                        }
+                        return accept;
+                    }
+                    return reject;
+                }
+            }
+        }
+
+        StatusBar {
+            vertical-stretch: 0;
+            status-text: root.status-text;
+            error-text: root.error-text;
+            busy: root.busy;
+        }
+    }
+}

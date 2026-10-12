@@ -1,0 +1,215 @@
+import { LibraryItem, LibraryRow, FolderTarget, ViewerTile } from "types.slint";
+import { Theme } from "theme.slint";
+import { LibraryScreen } from "library-screen.slint";
+import { PairingScreen } from "pairing-screen.slint";
+import { ViewerScreen } from "viewer-screen.slint";
+import { DragState } from "drag.slint";
+
+// Inter is embedded so the app looks the same whatever the system default
+// sans is. These are the only weights the UI uses (400, 500, 600).
+import "../fonts/Inter-Regular.ttf";
+import "../fonts/Inter-Medium.ttf";
+import "../fonts/Inter-SemiBold.ttf";
+
+export { LibraryItem, LibraryRow, FolderTarget, ViewerTile, Theme, DragState }
+
+export component AppWindow inherits Window {
+    title: root.title-text;
+    icon: @image-url("../icons/turborm.png");
+    default-font-family: "Inter";
+    preferred-width: 1080px;
+    preferred-height: 760px;
+    min-width: 760px;
+    min-height: 520px;
+    background: Theme.bg;
+
+    // Rust selects the screen: "library", "pairing" or "viewer".
+    in property <string> screen: "library";
+    // Rust owns the persisted theme choice; Theme.dark is presentation only.
+    in-out property <bool> theme-dark <=> Theme.dark;
+
+    in property <string> title-text <=> library.title-text;
+    in property <string> heading-text <=> library.heading-text;
+    in property <string> heading-subtitle <=> library.heading-subtitle;
+    in property <string> search-text <=> library.search-text;
+    in property <string> error-text;
+    in property <string> status-text;
+    in property <string> selection-title <=> library.selection-title;
+    in property <bool> busy;
+    in property <bool> paired;
+    in property <bool> demo-mode;
+    in property <bool> pairing-checking <=> pairing.checking;
+    out property <string> code <=> pairing.code;
+    in property <string> filter <=> library.filter;
+    in property <string> sort <=> library.sort;
+    in property <bool> covers-view <=> library.covers-view;
+    in property <bool> can-go-back <=> library.can-go-back;
+    in property <bool> can-open <=> library.can-open;
+    in property <bool> can-move <=> library.can-move;
+    in property <bool> can-export-original <=> library.can-export-original;
+    in property <bool> can-export-native <=> library.can-export-native;
+    in property <bool> can-export-pages <=> library.can-export-pages;
+    in property <bool> can-import <=> library.can-import;
+    in property <bool> can-verify-import <=> library.can-verify-import;
+    in property <bool> move-visible <=> library.move-visible;
+    in property <bool> can-create-folder <=> library.can-create-folder;
+    in property <bool> can-create-inside <=> library.can-create-inside;
+    in property <bool> folder-dialog-visible <=> library.folder-dialog-visible;
+    in property <string> folder-dialog-name <=> library.folder-dialog-name;
+    in property <string> folder-dialog-error <=> library.folder-dialog-error;
+    in property <string> folder-dialog-location <=> library.folder-dialog-location;
+    in property <bool> settings-visible <=> library.settings-visible;
+    in property <string> cache-mode <=> library.cache-mode;
+    in property <string> storage-text <=> library.storage-text;
+    in property <string> library-size-text <=> library.library-size-text;
+    in property <string> offline-text <=> library.offline-text;
+    in property <bool> offline-warning <=> library.offline-warning;
+    in property <string> offline-summary <=> library.offline-summary;
+    in property <bool> can-clear-cache <=> library.can-clear-cache;
+    in property <int> cover-columns <=> library.cover-columns;
+    in property <[LibraryItem]> entries <=> library.entries;
+    in property <[LibraryRow]> folder-rows <=> library.folder-rows;
+    in property <[LibraryRow]> cover-rows <=> library.cover-rows;
+    in property <[FolderTarget]> breadcrumbs <=> library.breadcrumbs;
+    in property <[FolderTarget]> move-targets <=> library.move-targets;
+
+    callback search-changed <=> library.search-changed;
+    callback filter-changed <=> library.filter-changed;
+    callback sort-changed <=> library.sort-changed;
+    callback view-changed <=> library.view-changed;
+    callback navigate <=> library.navigate;
+    callback go-back <=> library.go-back;
+    callback select-entry <=> library.select-entry;
+    callback clear-selection <=> library.clear-selection;
+    callback context-menu-requested <=> library.context-menu-requested;
+    callback activate-entry <=> library.activate-entry;
+    callback open-selected <=> library.open-selected;
+    callback refresh <=> library.refresh;
+    callback import-requested <=> library.import-requested;
+    callback move-requested <=> library.move-requested;
+    callback move-to <=> library.move-to;
+    callback move-cancelled <=> library.move-cancelled;
+    callback new-folder-requested <=> library.new-folder-requested;
+    callback new-folder-inside-requested <=> library.new-folder-inside-requested;
+    callback folder-name-edited <=> library.folder-name-edited;
+    callback folder-create-confirmed <=> library.folder-create-confirmed;
+    callback folder-dialog-cancelled <=> library.folder-dialog-cancelled;
+    callback settings-requested <=> library.settings-requested;
+    callback settings-closed <=> library.settings-closed;
+    callback cache-mode-changed <=> library.cache-mode-changed;
+    callback clear-cache-requested <=> library.clear-cache-requested;
+    callback export-original <=> library.export-original;
+    callback export-native <=> library.export-native;
+    callback export-pdf <=> library.export-pdf;
+    callback export-svg <=> library.export-svg;
+    callback verify-import <=> library.verify-import;
+    callback reconnect-requested <=> library.reconnect-requested;
+    callback viewport-changed <=> library.viewport-changed;
+    callback cover-visible <=> library.cover-visible;
+
+    // Viewer screen. Rust owns the page, zoom and tile state; the screen only
+    // presents it and reports the visible region back.
+    in property <string> document-title <=> viewer.document-title;
+    in property <bool> viewer-has-document <=> viewer.has-document;
+    in property <int> viewer-page <=> viewer.page;
+    in property <int> viewer-total <=> viewer.total;
+    in property <string> viewer-page-field <=> viewer.page-field;
+    in property <string> viewer-fit-mode <=> viewer.fit-mode;
+    in property <int> viewer-zoom-percent <=> viewer.zoom-percent;
+    in property <bool> viewer-can-export <=> viewer.can-export;
+    in property <[string]> viewer-warnings <=> viewer.warnings;
+    in property <[string]> viewer-notes <=> viewer.notes;
+    in property <length> viewer-page-width <=> viewer.page-width;
+    in property <length> viewer-page-height <=> viewer.page-height;
+    in property <image> viewer-overview <=> viewer.overview;
+    in property <bool> viewer-overview-ready <=> viewer.overview-ready;
+    in property <bool> viewer-stale <=> viewer.stale;
+    in property <[ViewerTile]> viewer-tiles <=> viewer.tiles;
+
+    callback viewer-back <=> viewer.back;
+    callback viewer-go-page <=> viewer.go-page;
+    callback viewer-page-field-edited <=> viewer.page-field-edited;
+    callback viewer-set-fit <=> viewer.set-fit;
+    callback viewer-zoom-by <=> viewer.zoom-by;
+    callback viewer-set-zoom <=> viewer.set-zoom;
+    callback viewer-export-pdf <=> viewer.export-pdf;
+    callback viewer-export-svg <=> viewer.export-svg;
+    callback viewer-export-svg-pages <=> viewer.export-svg-pages;
+    callback viewer-viewport-changed <=> viewer.viewport-changed;
+
+    public function focus-viewer() {
+        viewer.focus-canvas();
+    }
+
+    public function focus-library() {
+        library.focus-library();
+    }
+
+    // Demo-only helper: opens the context menu without a pointer so the
+    // `--demo-selected` screenshot can show it.
+    public function demo-context-menu() {
+        // Roughly where a right-click on the first card would land, so the
+        // screenshot shows the menu next to its selection.
+        library.show-context-menu-at(346px, 300px);
+    }
+
+    // Pairing screen. Rust owns the code's lifetime; the field is cleared as
+    // soon as the code has been handed to the service.
+    callback pair <=> pairing.pair;
+    callback open-connect-page <=> pairing.open-connect-page;
+    callback retry-connect <=> pairing.retry;
+
+    // The theme toggle is presentation state, so it is handled in Slint and
+    // mirrored to Rust through theme-dark for optional persistence.
+    callback theme-toggled();
+
+    // These callbacks belong to the Rust process bridge, not library presentation.
+    callback worker-wakeup();
+    callback legacy-finished(bool, string);
+
+    public function clear-pair-code() {
+        pairing.clear-code();
+    }
+
+    library := LibraryScreen {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        compact: root.width < 900px;
+        visible: root.screen == "library";
+        error-text: root.error-text;
+        status-text: root.status-text;
+        busy: root.busy;
+        paired: root.paired;
+        demo-mode: root.demo-mode;
+        theme-toggled => {
+            Theme.dark = !Theme.dark;
+            root.theme-toggled();
+        }
+    }
+
+    pairing := PairingScreen {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        visible: root.screen == "pairing";
+        error-text: root.error-text;
+        status-text: root.status-text;
+        busy: root.busy;
+        demo-mode: root.demo-mode;
+    }
+
+    viewer := ViewerScreen {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        visible: root.screen == "viewer";
+        error-text: root.error-text;
+        status-text: root.status-text;
+        busy: root.busy;
+        demo-mode: root.demo-mode;
+    }
+}

@@ -1,0 +1,107 @@
+import { ListView } from "std-widgets.slint";
+import { LibraryItem, LibraryRow } from "types.slint";
+import { Theme } from "theme.slint";
+import { LibraryCard } from "library-card.slint";
+import { LibraryRowItem, LibraryRowHeader } from "library-row.slint";
+
+export component LibraryList inherits Rectangle {
+    in property <bool> covers-view;
+    in property <[LibraryItem]> entries;
+    in property <[LibraryRow]> cover-rows;
+    callback select-entry(string);
+    callback activate-entry(string);
+    callback cover-visible(string);
+    callback viewport-changed(float);
+    callback context-menu(string, length, length);
+
+    // Columns collapse on narrow windows so the name never loses its space.
+    property <length> type-column: root.width < 620px ? 0px : 86px;
+    property <length> modified-column: root.width < 480px ? 0px : 150px;
+    // Mirrors the column count Rust used when it chunked the cover rows.
+    in property <int> cover-columns: 1;
+
+    init => {
+        root.viewport-changed(root.width / 1px);
+    }
+    changed width => {
+        root.viewport-changed(root.width / 1px);
+    }
+
+    property <bool> empty: (!root.covers-view && root.entries.length == 0)
+        || (root.covers-view && root.cover-rows.length == 0);
+
+    min-height: 120px;
+    preferred-height: 120px;
+    vertical-stretch: 1;
+    clip: true;
+
+    if root.empty: Text {
+        text: "No files in this view";
+        color: Theme.muted;
+        font-size: Theme.text-body;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    if !root.covers-view && !root.empty: VerticalLayout {
+        spacing: 0px;
+        LibraryRowHeader {
+            type-column: root.type-column;
+            modified-column: root.modified-column;
+        }
+        ListView {
+            vertical-stretch: 1;
+            for item in root.entries: LibraryRowItem {
+                width: parent.width;
+                height: 56px;
+                item: item;
+                type-column: root.type-column;
+                modified-column: root.modified-column;
+                selected(id) => {
+                    root.select-entry(id);
+                }
+                activated(id) => {
+                    root.activate-entry(id);
+                }
+                context-menu(id, x, y) => {
+                    root.context-menu(id, x, y);
+                }
+            }
+        }
+    }
+
+    if root.covers-view && !root.empty: ListView {
+        width: parent.width;
+        height: parent.height;
+        for row in root.cover-rows: HorizontalLayout {
+            width: parent.width;
+            // Fixed card width: cover 158px wide at the A-series ratio (~223px
+            // tall) plus padding, title and subtitle rows.
+            height: 310px;
+            spacing: 14px;
+            for item in row.items: LibraryCard {
+                min-width: 170px;
+                max-width: 170px;
+                horizontal-stretch: 0;
+                height: 296px;
+                item: item;
+                selected(id) => {
+                    root.select-entry(id);
+                }
+                activated(id) => {
+                    root.activate-entry(id);
+                }
+                cover-visible(id) => {
+                    root.cover-visible(id);
+                }
+                context-menu(id, x, y) => {
+                    root.context-menu(id, x, y);
+                }
+            }
+            // Keeps a short final row left-aligned instead of stretching it.
+            if row.items.length < root.cover-columns: Rectangle {
+                horizontal-stretch: root.cover-columns - row.items.length;
+            }
+        }
+    }
+}

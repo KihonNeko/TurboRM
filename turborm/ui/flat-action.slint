@@ -1,0 +1,124 @@
+import { Theme } from "theme.slint";
+
+// Ghost button: 1px rule border on a surface fill, matching .btn--ghost.
+export component FlatAction inherits Rectangle {
+    in property <string> text;
+    // Longer explanation, surfaced as the tooltip and accessible description.
+    in property <string> description;
+    in property <bool> enabled: true;
+    callback clicked();
+
+    min-width: label.preferred-width + 24px;
+    preferred-width: label.preferred-width + 24px;
+    horizontal-stretch: 0;
+    min-height: 32px;
+    max-height: 32px;
+    background: !root.enabled
+        ? Theme.surface
+        : (input.pressed || input.has-hover || focus.has-focus ? Theme.surface-2 : Theme.surface);
+    border-width: 1px;
+    border-color: input.has-hover || focus.has-focus ? Theme.rule-strong : Theme.rule;
+    border-radius: Theme.radius;
+    opacity: root.enabled ? 1.0 : 0.45;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-description: root.description;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
+    forward-focus: focus;
+
+    label := Text {
+        x: 12px;
+        y: 0px;
+        width: parent.width - 24px;
+        height: parent.height;
+        text: root.text;
+        color: Theme.ink-2;
+        font-size: 12px;
+        font-weight: 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    input := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+            focus.focus();
+        }
+    }
+    focus := FocusScope {
+        width: 0px;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (event.text == Key.Space || event.text == Key.Return) {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+// Primary button: ink fill with background-coloured text, matching .btn--ink.
+export component PrimaryAction inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    callback clicked();
+
+    min-width: label.preferred-width + 30px;
+    preferred-width: label.preferred-width + 30px;
+    horizontal-stretch: 0;
+    min-height: 36px;
+    max-height: 36px;
+    background: Theme.ink;
+    border-radius: Theme.radius;
+    opacity: root.enabled ? (input.has-hover ? 0.86 : 1.0) : 0.35;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
+    forward-focus: focus;
+
+    label := Text {
+        x: 15px;
+        y: 0px;
+        width: parent.width - 30px;
+        height: parent.height;
+        text: root.text;
+        color: Theme.bg;
+        font-size: 12px;
+        font-weight: 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    input := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+            focus.focus();
+        }
+    }
+    focus := FocusScope {
+        width: 0px;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (event.text == Key.Space || event.text == Key.Return) {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+}
