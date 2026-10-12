@@ -11,7 +11,9 @@
 # the page scaled down to fit. --margin-notes leaves a 45 mm right margin for
 # handwriting. The page's own directory is served read-only on 127.0.0.1 for
 # the few seconds of the conversion, so relative files and fetch() of local
-# data work as they would on a web server. The original is never modified.
+# data work as they would on a web server; only ordinary web-asset files are
+# served, never hidden files or anything outside that directory. The
+# original is never modified.
 # An existing output file is never overwritten.
 set -euo pipefail
 
@@ -246,11 +248,22 @@ PY
 
 # A GET/HEAD-only server for the page's directory, with the prepared copy
 # at a reserved path beside the original so relative URLs resolve the same.
+# The page's scripts run with this server as their own origin, so it only
+# hands out regular web-asset files inside the directory: no hidden files or
+# directories, no symlinks leading outside, no directory listings. A page
+# saved directly in the home directory (or /) gets no siblings at all.
 cat >"$work/serve.py" <<'PY'
-import functools, http.server, sys
+import functools, http.server, os, sys, urllib.parse
 
-root, page, port_file = sys.argv[1:4]
+root, page, port_file, siblings = sys.argv[1:5]
+root = os.path.realpath(root)
 RESERVED = "/__remarkable_print__.html"
+ASSETS = {
+    ".html", ".htm", ".css", ".js", ".mjs", ".map", ".json", ".geojson",
+    ".csv", ".tsv", ".txt", ".md", ".xml", ".svg", ".png", ".jpg", ".jpeg",
+    ".gif", ".webp", ".avif", ".bmp", ".ico", ".woff", ".woff2", ".ttf",
+    ".otf", ".wasm",
+}
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -258,6 +271,38 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if path.split("?", 1)[0].split("#", 1)[0] == RESERVED:
             return page
         return super().translate_path(path)
+
+    def allowed(self):
+        path = urllib.parse.unquote(self.path.split("?", 1)[0].split("#", 1)[0])
+        if path == RESERVED:
+            return True
+        if siblings != "yes":
+            return False
+        parts = [part for part in path.split("/") if part]
+        if not parts or any(part.startswith(".") for part in parts):
+            return False
+        real = os.path.realpath(self.translate_path(self.path))
+        return (
+            os.path.commonpath([root, real]) == root
+            and os.path.isfile(real)
+            and os.path.splitext(real)[1].lower() in ASSETS
+        )
+
+    def do_GET(self):
+        if self.allowed():
+            super().do_GET()
+        else:
+            self.send_error(404)
+
+    def do_HEAD(self):
+        if self.allowed():
+            super().do_HEAD()
+        else:
+            self.send_error(404)
+
+    def list_directory(self, path):
+        self.send_error(404)
+        return None
 
     def log_message(self, *args):
         pass
@@ -270,7 +315,12 @@ with open(port_file, "w") as out:
     out.write(str(server.server_address[1]))
 server.serve_forever()
 PY
-python3 "$work/serve.py" "$(dirname "$(realpath "$input")")" "$work/page.html" "$work/port" &
+page_dir=$(dirname "$(realpath "$input")")
+siblings=yes
+if [[ $page_dir == / || ( -n ${HOME:-} && $page_dir == "$(realpath "$HOME")" ) ]]; then
+  siblings=no
+fi
+python3 "$work/serve.py" "$page_dir" "$work/page.html" "$work/port" "$siblings" &
 server_pid=$!
 for _ in $(seq 50); do
   [[ -s $work/port ]] && break
