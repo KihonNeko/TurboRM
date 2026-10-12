@@ -22,3 +22,7 @@ rmapi.conf
 
 # This generated, nonprivate PDF is a source-controlled smoke-test fixture.
 !/turborm-core/examples/transfer-test.pdf
+
+# Release packaging output (built in CI).
+/dist/
+/THIRD-PARTY-LICENSES.html

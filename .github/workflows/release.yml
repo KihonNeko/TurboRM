@@ -1,0 +1,61 @@
+# Builds TurboRM when a version tag (v0.1.0, ...) is pushed and publishes a
+# GitHub release with the Linux download, its checksum and license notices.
+# The tag must match the version in both Cargo.toml files, and CHANGELOG.md
+# needs a "## <version>" section, which becomes the release notes.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # The oldest supported runner, so the binary runs on older glibc
+    # (Debian 12, Ubuntu 22.04 and newer).
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkgconf libfontconfig-dev \
+            libfreetype-dev libgl-dev libegl-dev libwayland-dev libxkbcommon-dev \
+            poppler-utils util-linux
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check the tag matches the crate versions and changelog
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          for crate in turborm turborm-core; do
+            grep -qx "version = \"$version\"" "$crate/Cargo.toml" ||
+              { echo "::error::$crate/Cargo.toml is not version $version"; exit 1; }
+          done
+          awk -v v="$version" 'index($0, "## " v) == 1 {on=1; next} /^## / {on=0} on' CHANGELOG.md >notes.md
+          [ -s notes.md ] || { echo "::error::CHANGELOG.md has no '## $version' section"; exit 1; }
+          cat packaging/release-install.md >>notes.md
+
+      - name: Test
+        run: cargo test --workspace --locked
+
+      - name: Build
+        run: cargo build --release --locked -p turborm -p turborm-core
+
+      - name: Third-party license notices
+        run: |
+          cargo install cargo-about --locked --version 0.9.2 --features cli
+          cargo about generate --locked -c packaging/about.toml packaging/about.hbs -o THIRD-PARTY-LICENSES.html
+
+      - name: Package
+        run: packaging/package.sh "$GITHUB_REF_NAME" dist
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "TurboRM $GITHUB_REF_NAME" --notes-file notes.md

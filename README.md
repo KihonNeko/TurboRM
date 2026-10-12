@@ -10,6 +10,18 @@ TurboRM is experimental. It never deletes anything in your cloud library: every 
 
 ## Install
 
+Download the latest `turborm-…-x86_64-linux.tar.gz` from the [releases page](https://github.com/KihonNeko/TurboRM/releases), then:
+
+```sh
+tar xzf turborm-*-x86_64-linux.tar.gz
+cd turborm-*-x86_64-linux
+./install.sh
+```
+
+It installs for your user only (`~/.local/bin` and your application menu); `./install.sh --uninstall` removes it. PDF pages need `poppler-utils`. The release binary is built on Ubuntu 22.04 for x86_64 and runs on Debian 12, Ubuntu 22.04 and newer.
+
+### Build from source
+
 TurboRM is written in Rust (1.92 or newer) with the [Slint](https://slint.dev) toolkit. On Debian/Ubuntu:
 
 ```sh
@@ -36,6 +48,7 @@ The [desktop guide](turborm/README.md) covers features, paper templates, caching
 turborm/        Linux desktop app (Slint UI, viewer, renderer, `turborm review`)
 turborm-core/   reMarkable Cloud library and the `turborm-cli` command-line client
 skills/         Claude Code skill that sends documents to the tablet for handwritten review
+packaging/      release archive, installer and license-notice configuration
 ```
 
 ## Claude Code skill

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TurboRM third-party licenses</title>
+<style>
+  body { font-family: sans-serif; max-width: 960px; margin: 2em auto; padding: 0 16px; color: #222; }
+  pre { white-space: pre-wrap; background: #f6f6f6; padding: 1em; font-size: 0.85em; }
+  li.license { list-style: none; margin-bottom: 2em; }
+</style>
+</head>
+<body>
+<h1>Third-party licenses</h1>
+<p>TurboRM is licensed under the GNU General Public License v3.0 or later. It is built with the following open-source projects. The Inter font is licensed under the SIL Open Font License 1.1 (see Inter-LICENSE.txt).</p>
+<h2>Overview</h2>
+<ul>
+{{#each overview}}
+  <li><a href="#{{id}}">{{name}}</a> ({{count}})</li>
+{{/each}}
+</ul>
+<h2>License texts</h2>
+<ul>
+{{#each licenses}}
+  <li class="license">
+    <h3 id="{{id}}">{{name}}</h3>
+    <p>Used by:
+    {{#each used_by}}
+      <a href="{{#if crate.repository}}{{crate.repository}}{{else}}https://crates.io/crates/{{crate.name}}{{/if}}">{{crate.name}} {{crate.version}}</a>{{#unless @last}},{{/unless}}
+    {{/each}}
+    </p>
+    <pre>{{text}}</pre>
+  </li>
+{{/each}}
+</ul>
+</body>
+</html>

@@ -29,7 +29,7 @@ cargo build -p turborm --release --locked
 ./target/release/turborm
 ```
 
-`turborm.desktop` is an optional application-menu entry; its `Exec` expects the binary on your PATH. No system installation is performed by this repository. The menu icon is `icons/turborm.svg`; to use it, copy it to `~/.local/share/icons/hicolor/scalable/apps/turborm.svg`. `icons/turborm-small.svg` drops the small "RM" for 16–24 px icons; render it to PNG in `hicolor/16x16`, `22x22` and `24x24`. The window icon is built into the binary from `icons/turborm.png`.
+`turborm.desktop` is an optional application-menu entry; its `Exec` expects the binary on your PATH. The release download's `install.sh` installs the binaries, this entry (with an absolute `Exec`) and the icons into `~/.local`; building from source installs nothing. The menu icon is `icons/turborm.svg`; to use it, copy it to `~/.local/share/icons/hicolor/scalable/apps/turborm.svg`. `icons/turborm-small.svg` drops the small "RM" for 16–24 px icons; render it to PNG in `hicolor/16x16`, `22x22` and `24x24`. The window icon is built into the binary from `icons/turborm.png`.
 
 ## Build environment
 

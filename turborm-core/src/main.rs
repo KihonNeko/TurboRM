@@ -10,6 +10,7 @@ use zeroize::Zeroizing;
 
 #[derive(Parser)]
 #[command(
+    name = "turborm-cli",
     version,
     about = "Browse, download and upload reMarkable Cloud documents"
 )]
